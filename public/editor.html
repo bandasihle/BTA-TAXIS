@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Ranks and routes | BTA Rank Tracker</title>
+  <meta name="theme-color" content="#f2b705">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/css/app.css">
+  <script>try{var t=localStorage.getItem('bta:theme');if(t)document.documentElement.dataset.theme=JSON.parse(t)}catch(e){}</script>
+</head>
+<body>
+  <header id="topbar"></header>
+  <main class="mapview">
+    <div class="map" id="map" aria-label="Map: tap an empty spot to add a rank">
+      <p class="map-hint" id="map-hint">Tap the map to add a rank. Drag a pin to move it.</p>
+    </div>
+    <aside class="panel" aria-label="Edit ranks and routes">
+      <div class="panel-scroll">
+        <div id="rank-form-wrap"></div>
+
+        <h2 class="section-title">Ranks</h2>
+        <ul class="plist" id="rank-list"></ul>
+
+        <form class="editor-form" id="route-form" style="border-top:1px solid var(--line);margin-top:12px">
+          <h2>Add a route</h2>
+          <div class="two">
+            <label class="field">From <select class="input" id="r-from" required></select></label>
+            <label class="field">To <select class="input" id="r-to" required></select></label>
+          </div>
+          <label class="check"><input type="checkbox" id="r-both" checked> Both directions</label>
+          <div class="btns"><button class="btn primary" type="submit">Add route</button></div>
+        </form>
+
+        <h2 class="section-title">Routes</h2>
+        <ul class="plist" id="route-list"></ul>
+        <p class="footer" id="footer"></p>
+      </div>
+    </aside>
+  </main>
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script type="module" src="/js/editor.js"></script>
+</body>
+</html>

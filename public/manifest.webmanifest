@@ -1,0 +1,12 @@
+{
+  "name": "BTA Rank Tracker",
+  "short_name": "BTA Ranks",
+  "description": "Rank queues and taxi trips for the Benoni Taxi Association.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1c1f22",
+  "theme_color": "#f2b705",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

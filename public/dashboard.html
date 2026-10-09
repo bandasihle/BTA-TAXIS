@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dashboard | BTA Rank Tracker</title>
+  <meta name="theme-color" content="#f2b705">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/css/app.css">
+  <script>try{var t=localStorage.getItem('bta:theme');if(t)document.documentElement.dataset.theme=JSON.parse(t)}catch(e){}</script>
+</head>
+<body>
+  <header id="topbar"></header>
+  <main class="mapview">
+    <div class="map" id="map" aria-label="Map of ranks and taxis"></div>
+    <aside class="panel" aria-label="Ranks, trips and taxis">
+      <div class="summary" id="summary" role="group" aria-label="Show taxis by state"></div>
+      <div class="filters">
+        <label class="visually-hidden" for="f-route">Route</label>
+        <select class="input" id="f-route"><option value="all">All routes</option></select>
+        <label class="visually-hidden" for="f-q">Find a plate</label>
+        <input class="input" id="f-q" type="search" placeholder="Find a plate" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="ptabs" role="tablist" aria-label="Panel">
+        <button class="ptab" role="tab" type="button" data-tab="ranks">Ranks</button>
+        <button class="ptab" role="tab" type="button" data-tab="trips">Trip log</button>
+        <button class="ptab" role="tab" type="button" data-tab="taxis">Taxis</button>
+      </div>
+      <div class="panel-scroll" id="panel-body"></div>
+      <div class="footer" style="border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+        <span id="sim-note"></span>
+        <button class="btn sm danger" type="button" id="reset">Reload demo data</button>
+      </div>
+    </aside>
+  </main>
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script type="module" src="/js/dashboard.js"></script>
+</body>
+</html>

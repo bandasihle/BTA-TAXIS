@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>BTA Rank Tracker</title>
+  <meta name="description" content="Track which taxi is where for the Benoni Taxi Association: rank queues, loading and trips.">
+  <meta name="theme-color" content="#f2b705">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/app.css">
+  <script>try{var t=localStorage.getItem('bta:theme');if(t)document.documentElement.dataset.theme=JSON.parse(t)}catch(e){}</script>
+</head>
+<body>
+  <header id="topbar"></header>
+  <main class="home">
+    <h1>Which taxi is where, right now.</h1>
+    <p class="lede">Marshals record each taxi as it queues, loads and leaves. The office sees every rank and every taxi on the road from Etwatwa and Daveyton to Benoni.</p>
+
+    <div class="home-live" id="live" aria-live="polite"></div>
+
+    <div class="roles">
+      <div class="role">
+        <h2>I work a rank</h2>
+        <p>Check taxis in, count passengers, send them off.</p>
+        <form class="role-go" id="marshal-go">
+          <label class="visually-hidden" for="marshal-rank">Your rank</label>
+          <select class="input" id="marshal-rank" required><option value="">Choose your rank</option></select>
+          <button class="btn primary" type="submit">Open</button>
+        </form>
+      </div>
+      <a class="role" href="/dashboard">
+        <h2>Association office</h2>
+        <p>Every rank, every queue and every taxi on the road, on one map.</p>
+        <span class="role-go"><span class="btn">Open dashboard</span></span>
+      </a>
+      <div class="role">
+        <h2>Screen for passengers</h2>
+        <p>Big-text board for a rank: which taxi is loading for where.</p>
+        <form class="role-go" id="board-go">
+          <label class="visually-hidden" for="board-rank">Rank</label>
+          <select class="input" id="board-rank" required><option value="">Choose a rank</option></select>
+          <button class="btn" type="submit">Show</button>
+        </form>
+      </div>
+      <a class="role" href="/editor">
+        <h2>Ranks and routes</h2>
+        <p>Put each rank in the right spot and set which routes run from it.</p>
+        <span class="role-go"><span class="btn">Edit</span></span>
+      </a>
+    </div>
+  </main>
+  <footer class="footer home" style="padding-top:0" id="footer"></footer>
+  <script type="module" src="/js/home.js"></script>
+</body>
+</html>

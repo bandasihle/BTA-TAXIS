@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Marshal | BTA Rank Tracker</title>
+  <meta name="theme-color" content="#f2b705">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/app.css">
+  <script>try{var t=localStorage.getItem('bta:theme');if(t)document.documentElement.dataset.theme=JSON.parse(t)}catch(e){}</script>
+</head>
+<body>
+  <header id="topbar"></header>
+  <main class="marshal" id="app"><p class="muted" style="padding:24px 0">Loading the rank…</p></main>
+  <footer class="footer marshal" id="footer" style="padding-bottom:110px"></footer>
+
+  <div class="sticky-cta"><button class="btn primary" id="checkin-open" type="button">Check in taxi</button></div>
+
+  <dialog id="checkin" aria-labelledby="ci-title">
+    <form class="dialog-body" id="checkin-form" autocomplete="off">
+      <h2 id="ci-title">Check in taxi</h2>
+      <label class="field">Number plate
+        <input class="input" id="ci-plate" list="ci-plates" required placeholder="For example HX 47 TK GP" autocapitalize="characters" spellcheck="false">
+      </label>
+      <datalist id="ci-plates"></datalist>
+      <p id="ci-status" class="small" aria-live="polite"></p>
+      <div id="ci-new" hidden>
+        <p class="hint">This plate is not registered yet. It will be added with these details.</p>
+        <div style="display:grid;grid-template-columns:110px 1fr;gap:8px;margin-top:10px">
+          <label class="field">Seats <input class="input" id="ci-cap" type="number" min="4" max="35" value="15" inputmode="numeric"></label>
+          <label class="field">Driver (optional) <input class="input" id="ci-driver"></label>
+        </div>
+      </div>
+      <label class="field">Queue for <select class="input" id="ci-route" required></select></label>
+      <div class="dialog-actions">
+        <button class="btn quiet" type="button" id="ci-cancel">Cancel</button>
+        <button class="btn primary" type="submit" id="ci-submit">Add to queue</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="/js/marshal.js"></script>
+</body>
+</html>
