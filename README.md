@@ -1,6 +1,6 @@
 # BTA Rank Tracker (prototype)
 
-Tracks which taxi is where for the Benoni Taxi Association: rank queues, loading, departures and taxis on the road between Etwatwa, Daveyton, Benoni and nearby ranks. Built from `PLAN.md`.
+Tracks which taxi is where for the Benoni Taxi Association: rank queues, loading, departures and taxis on the road between Etwatwa, Daveyton, Benoni and nearby ranks.
 
 **Everything in here is demo data.** Taxis, drivers, marshals and routes are made up. Rank positions come from OpenStreetMap; the Daveyton and Etwatwa pins are placeholders.
 
@@ -54,9 +54,9 @@ public/       the five screens (vanilla JS modules, Leaflet map), PWA manifest +
 test/         node:test suites
 ```
 
-### Why not Next.js?
+### Why a plain Node server?
 
-The plan suggested Next.js with Drizzle or Prisma. This prototype uses a plain Node server, Node's built-in SQLite and vanilla JS instead: one dependency (Leaflet), nothing to compile, no native modules to build on Windows, and small pages that suit cheap phones on mobile data. The API is small, so it can be moved behind a framework later.
+This prototype uses a plain Node server, Node's built-in SQLite and vanilla JS rather than a framework: one dependency (Leaflet), nothing to compile, no native modules to build on Windows, and small pages that suit cheap phones on mobile data. The API is small, so it can be moved behind a framework later.
 
 ## API
 
