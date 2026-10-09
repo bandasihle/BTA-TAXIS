@@ -1,5 +1,16 @@
 # BTA Rank Tracker (prototype)
 
+**Live demo: https://bta-taxis.onrender.com**
+
+The demo runs on Render's free plan: after about 15 minutes without visitors it sleeps, so the first load can take up to a minute. It resets to the demo data whenever it restarts.
+
+| Screen | Link |
+|---|---|
+| Office dashboard (live map) | https://bta-taxis.onrender.com/dashboard |
+| Marshal screen (try it on a phone) | https://bta-taxis.onrender.com/marshal |
+| Rank screen for passengers | https://bta-taxis.onrender.com/board |
+| Ranks and routes editor | https://bta-taxis.onrender.com/editor |
+
 Tracks which taxi is where for the Benoni Taxi Association: rank queues, loading, departures and taxis on the road between Etwatwa, Daveyton, Benoni and nearby ranks.
 
 **Everything in here is demo data.** Taxis, drivers, marshals and routes are made up. Rank positions come from OpenStreetMap; the Daveyton and Etwatwa pins are placeholders.
