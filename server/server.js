@@ -12,7 +12,7 @@ const LEAFLET = path.join(ROOT, 'node_modules', 'leaflet', 'dist');
 const PORT = Number(process.env.PORT || 3000);
 
 const db = openDb(process.env.DB_FILE || DEFAULT_DB);
-const store = createStore(db, { demo: process.env.DEMO !== '0', simScale: Number(process.env.SIM_SCALE || 20) });
+const store = createStore(db, { demo: process.env.DEMO !== '0', simScale: Number(process.env.SIM_SCALE || 20), fetchRoads: true });
 if (store.isEmpty()) seed(store);
 
 const positions = new SimulatedPositionSource(store);
@@ -122,10 +122,10 @@ async function api(req, res, url) {
 
 // ------------------------------------------------------------------ static files
 
-const PAGES = { '/': 'index.html', '/marshal': 'marshal.html', '/dashboard': 'dashboard.html', '/editor': 'editor.html', '/board': 'board.html' };
+const PAGES = { '/': 'index.html', '/staff': 'staff.html', '/marshal': 'marshal.html', '/dashboard': 'dashboard.html', '/editor': 'editor.html', '/board': 'board.html' };
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png',
+  '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpeg': 'image/jpeg', '.jpg': 'image/jpeg',
 };
 
 function serveFile(res, base, rel) {

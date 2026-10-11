@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { checkTransition, STATUS, TransitionError } from './state.js';
 import { roadLine, lineLength } from './geo.js';
+import { savedRoad, fetchRoad } from './roads.js';
 
 export class HttpError extends Error {
   constructor(status, message) {
@@ -222,8 +223,30 @@ export function createStore(db, opts = {}) {
 
   // ---------------------------------------------------------------- ranks & routes
 
+  /** The saved road between two ranks, or a stand-in line until the real road arrives. */
   function lineBetween(a, b) {
-    return JSON.stringify(roadLine([a.lat, a.lng], [b.lat, b.lng], a.id, b.id));
+    return JSON.stringify(savedRoad(a, b) ?? roadLine([a.lat, a.lng], [b.lat, b.lng], a.id, b.id));
+  }
+
+  // With fetchRoads on (the server, not the tests), a route with no saved road asks the
+  // route planner for it and swaps it in when it arrives. No answer keeps the stand-in.
+  function fetchMissingRoads(routeIds) {
+    if (!opts.fetchRoads) return;
+    for (const id of routeIds) {
+      const r = one('SELECT * FROM routes WHERE id = ?', id);
+      if (!r) continue;
+      const a = getRank(r.from_rank_id);
+      const b = getRank(r.to_rank_id);
+      if (savedRoad(a, b)) continue;
+      fetchRoad(a, b)
+        .then((road) => {
+          const now = one('SELECT r.id FROM routes r JOIN ranks f ON f.id = r.from_rank_id JOIN ranks t ON t.id = r.to_rank_id WHERE r.id = ? AND f.lat = ? AND f.lng = ? AND t.lat = ? AND t.lng = ?', id, a.lat, a.lng, b.lat, b.lng);
+          if (!now) return; // deleted or moved again while we waited
+          run('UPDATE routes SET polyline = ? WHERE id = ?', JSON.stringify(road), id);
+          changed();
+        })
+        .catch((err) => console.warn(`No road for ${a.name} to ${b.name}: ${err.message}`));
+    }
   }
 
   function validRankFields(input, partial = false) {
@@ -264,14 +287,17 @@ export function createStore(db, opts = {}) {
     const f = validRankFields(input, true);
     const keys = Object.keys(f);
     if (!keys.length) return { id: rank.id, message: 'Nothing to change' };
+    let moved = [];
     tx(() => {
       run(`UPDATE ranks SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`, ...keys.map((k) => f[k]), rank.id);
       if (f.lat !== undefined || f.lng !== undefined) {
         const routes = all('SELECT * FROM routes WHERE from_rank_id = ? OR to_rank_id = ?', rank.id, rank.id);
         for (const r of routes) run('UPDATE routes SET polyline = ? WHERE id = ?', lineBetween(getRank(r.from_rank_id), getRank(r.to_rank_id)), r.id);
+        moved = routes.map((r) => r.id);
       }
     });
     changed();
+    fetchMissingRoads(moved);
     return { id: rank.id, message: `${f.name ?? rank.name} saved` };
   }
 
@@ -307,6 +333,7 @@ export function createStore(db, opts = {}) {
     });
     if (!created.length) throw new HttpError(409, `${from.name} to ${to.name} already exists.`);
     changed();
+    fetchMissingRoads(created);
     return { ids: created, message: created.length === 2 ? `${from.name} and ${to.name} linked both ways` : `${from.name} to ${to.name} added` };
   }
 

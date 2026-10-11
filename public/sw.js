@@ -1,6 +1,6 @@
 // Network first, falling back to the last copy we saw, so a marshal's screen still
 // opens in a dead spot. Live data (/api) is never cached.
-const CACHE = 'bta-shell-v1';
+const CACHE = 'bta-shell-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));

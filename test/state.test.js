@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { checkTransition, STATUS, TransitionError } from '../server/state.js';
 import { openDb } from '../server/db.js';
 import { createStore } from '../server/store.js';
-import { seed } from '../server/seed.js';
+import { seed, RANKS, ROUTE_PAIRS } from '../server/seed.js';
 import { SimulatedPositionSource } from '../server/sim.js';
 
 const taxi = (status, extra = {}) => ({ plate: 'AB 12 CD GP', capacity: 15, status, rank_id: 1, ...extra });
@@ -57,8 +57,8 @@ function freshStore() {
 test('seed loads ranks, two-way routes and taxis in every state', () => {
   const { store } = freshStore();
   const s = store.snapshot();
-  assert.equal(s.ranks.length, 11);
-  assert.equal(s.routes.length, 12);
+  assert.equal(s.ranks.length, RANKS.length);
+  assert.equal(s.routes.length, ROUTE_PAIRS.length * 2);
   assert.equal(s.taxis.length, 30);
   for (const st of Object.values(STATUS)) assert.ok(s.taxis.some((t) => t.status === st), `no taxi is ${st}`);
 });
@@ -109,7 +109,7 @@ test('illegal moves leave the database unchanged', () => {
 test('new ranks and routes are available straight away', () => {
   const { store } = freshStore();
   const { id } = store.createRank({ name: 'Etwatwa Ext 9', lat: -26.11, lng: 28.46 });
-  const daveyton = store.snapshot().ranks.find((r) => r.name === 'Daveyton Main');
+  const daveyton = store.snapshot().ranks.find((r) => r.name === 'Daveyton');
   store.createRoute({ fromRankId: id, toRankId: daveyton.id, bothWays: true });
   const s = store.snapshot();
   assert.ok(s.routes.some((r) => r.fromRankId === id && r.toRankId === daveyton.id));

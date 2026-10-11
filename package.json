@@ -11,7 +11,8 @@
     "start": "node --disable-warning=ExperimentalWarning server/server.js",
     "dev": "node --disable-warning=ExperimentalWarning --watch-path=server server/server.js",
     "seed": "node --disable-warning=ExperimentalWarning server/seed.js",
-    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\""
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\"",
+    "roads": "node --disable-warning=ExperimentalWarning server/fetch-roads.js"
   },
   "dependencies": {
     "leaflet": "1.9.4"

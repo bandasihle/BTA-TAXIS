@@ -6,14 +6,23 @@ The demo runs on Render's free plan: after about 15 minutes without visitors it 
 
 | Screen | Link |
 |---|---|
+| Danki Driver, the passenger app | https://bta-taxis.onrender.com |
+| Staff home | https://bta-taxis.onrender.com/staff |
 | Office dashboard (live map) | https://bta-taxis.onrender.com/dashboard |
 | Marshal screen (try it on a phone) | https://bta-taxis.onrender.com/marshal |
 | Rank screen for passengers | https://bta-taxis.onrender.com/board |
 | Ranks and routes editor | https://bta-taxis.onrender.com/editor |
 
-Tracks which taxi is where for the Benoni Taxi Association: rank queues, loading, departures and taxis on the road between Etwatwa, Daveyton, Benoni and nearby ranks.
+Two parts for the Benoni Taxi Association:
 
-**Everything in here is demo data.** Taxis, drivers, marshals and routes are made up. Rank positions come from OpenStreetMap; the Daveyton and Etwatwa pins are placeholders.
+- **Danki Driver** (passenger app, `/`). Pick a province, then a region, then a rank, on the map or in the list, and see each destination with the hours taxis run and the price. Built from the association's brief in `docs/danki-driver-app.pdf`. On a rank's screen it also shows, live: whether each destination is running now ("Last taxi in 40 min", "Closed, opens 04:00", in South African time), the taxi loading for it (seats filled, no queue numbers), taxis driving to and from the rank on the map, and a trip preview with a rough travel time. Loading and moving taxis come from the tracker's simulation.
+- **Rank tracker** (staff, `/staff`). Tracks which taxi is where: rank queues, loading, departures and taxis on the road between Etwatwa, Daveyton, Benoni and nearby ranks.
+
+**Danki Driver data.** All nine provinces are listed. Only Gauteng > Benoni Ekurhuleni has ranks so far. The Etwatwa Las Vegas destinations, times and prices come from the association. The other ranks (Barcelona, Cloverdene, Lakeside, Danstreet, Northmead Square, East Rand Mall, SuperSpar) have sample destinations and prices, and the app says so on their screens. Edit `public/js/fares.js` to confirm or change them.
+
+**Places.** The passenger app, the dashboard and the rank editor all use the same places from `public/js/fares.js`, so they are already on the map. Etwatwa Las Vegas is at the spot the association gave. The others were found with OpenStreetMap place search and sit on the right area, not the exact rank ("Danstreet" in the brief is Dunswart, "Jimeston" is Germiston). Barcelona is only placed inside Etwatwa.
+
+**The rank tracker's taxis are demo data.** Taxis, drivers and marshals are made up, and its routes are the Danki Driver fare lists.
 
 ## Run it
 
@@ -29,7 +38,8 @@ npm start          # http://localhost:3000
 | `npm start` | Runs the app on port 3000 (`PORT=4000 npm start` to change). |
 | `npm run dev` | Same, restarting when server files change. |
 | `npm run seed` | Wipes the database and reloads demo data. |
-| `npm test` | State machine and end-to-end store tests. |
+| `npm run roads` | Fetches the road for any demo route not yet saved in `server/roads.json` (`-- --all` fetches them all again). |
+| `npm test` | State machine, end-to-end store and Danki Driver data tests. |
 
 Settings (environment variables): `PORT` (default 3000), `DEMO=0` to start with demo mode off, `SIM_SCALE` (default 20: simulated taxis drive 20x faster than real time), `DB_FILE` (default `data/taxi.db`).
 
@@ -37,7 +47,8 @@ Settings (environment variables): `PORT` (default 3000), `DEMO=0` to start with 
 
 | Path | For |
 |---|---|
-| `/` | Pick a role. |
+| `/` | Danki Driver: a map and list of province, region, rank, then destination, time and price, with the routes drawn on the map. Links like `/#/gauteng/benoni-ekurhuleni/etwatwa-las-vegas` open a rank directly. |
+| `/staff` | Pick a staff role. |
 | `/marshal?rank=<id>` | Phone screen for the rank marshal: check taxis in, add passengers, depart, reorder, mark arrivals. Taps made with no signal are saved on the phone and sent later. |
 | `/dashboard` | Association office: live map, queue per rank, trip log, taxi search and history. |
 | `/board?rank=<id>` | Big-text rank screen for passengers. |
@@ -58,10 +69,14 @@ server/
   store.js    every read and write; emits 'change'
   state.js    taxi state machine (pure)
   sim.js      position source + simulator + demo mode
-  seed.js     ranks (from OpenStreetMap), routes, demo taxis
+  seed.js     demo taxis; ranks and routes come from public/js/fares.js
   geo.js      distance and route-line helpers
+  roads.js    road routes: the saved ones in roads.json, and fetching new ones from OSRM
+  fetch-roads.js  `npm run roads`
   db.js       SQLite schema
-public/       the five screens (vanilla JS modules, Leaflet map), PWA manifest + service worker
+public/       Danki Driver and the five staff screens (vanilla JS modules, Leaflet map), PWA manifest + service worker
+  js/fares.js Danki Driver provinces, regions, ranks, destinations, times and prices
+docs/         the association's Danki Driver brief and the original BTA logo
 test/         node:test suites
 ```
 
@@ -76,7 +91,8 @@ This prototype uses a plain Node server, Node's built-in SQLite and vanilla JS r
 ## Known gaps
 
 - No login: anyone with the link can act as any marshal.
-- Rank names other than Benoni CBD, Daveyton and Etwatwa are taken from street names in OpenStreetMap and need confirming.
+- Rank pins other than Etwatwa Las Vegas sit on the right area, not the exact rank.
 - Map tiles come from openstreetmap.org and need a connection.
+- Routes follow the fastest road for a car, from the free OSRM route planner (router.project-osrm.org), which is not always the road taxis take. The demo routes are saved in `server/roads.json`; a route added or moved in the editor fetches its road when it is saved and keeps a stand-in line if the planner cannot be reached.
 
 Map data © OpenStreetMap contributors, ODbL.

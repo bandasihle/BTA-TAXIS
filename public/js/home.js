@@ -1,6 +1,6 @@
 import { $, esc, local, renderTopbar, connect, FOOTER, registerServiceWorker, mark } from './common.js';
 
-renderTopbar('/');
+renderTopbar('/staff');
 $('#footer').innerHTML = FOOTER;
 registerServiceWorker();
 

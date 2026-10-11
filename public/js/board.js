@@ -26,7 +26,7 @@ function render() {
     const t = front && s.taxiById.get(front.taxiId);
     if (!t) {
       return `<li class="board-row"><span class="to"><small>To</small>${esc(s.rankName(r.toRankId))}</span><span></span>
-        <span class="state" style="color:#a9b1b8">No taxi loading yet</span></li>`;
+        <span class="state" style="color:#b4b9ff">No taxi loading yet</span></li>`;
     }
     const left = t.capacity - front.seats;
     const full = left === 0;

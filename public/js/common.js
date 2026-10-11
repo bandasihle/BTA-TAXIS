@@ -66,12 +66,13 @@ export function renderTopbar(active) {
   const el = document.getElementById('topbar');
   el.className = 'topbar';
   el.innerHTML = `
-    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">BTA</span>
+    <a class="brand" href="/staff">
       <span class="brand-name">Benoni Taxi Association<small>Rank tracker</small></span></a>
     <nav class="nav" aria-label="Screens">${NAV.map(([href, label]) => `<a href="${href}"${href === active ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
     <div class="topbar-tools">
       <label class="switch" title="Simulated marshals load and send off taxis by themselves"><input type="checkbox" id="demo-toggle"><span>Demo mode</span></label>
       <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch between light and dark">${THEME_ICON}</button>
+      <a class="brand-logo" href="/" title="Danki Driver, the passenger app"><img src="/img/bta-logo.png" width="40" height="40" alt="Benoni Taxi Association"></a>
     </div>`;
   $('#theme-toggle').addEventListener('click', toggleTheme);
   $('#demo-toggle').addEventListener('change', async (e) => {

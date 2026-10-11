@@ -1,49 +1,40 @@
 import { pathToFileURL } from 'node:url';
 import { openDb, DEFAULT_DB } from './db.js';
 import { createStore } from './store.js';
+import { PLACES, allRanks, trackerName } from '../public/js/fares.js';
 
-// Real taxi rank points from OpenStreetMap (amenity=taxi), Overpass data as of July 2026.
-// OSM gives no names for most of them; the names below come from the street or suburb
-// and are marked unverified. Daveyton and Etwatwa are NOT mapped in OSM: their pins are
-// placeholders for the association to move in the rank editor.
+// Ranks and routes come from the Danki Driver directory (public/js/fares.js), so the
+// passenger app, the dashboard and the rank editor all show the same places. Every Danki
+// rank becomes a rank here, and so does every place taxis go to. Positions come from
+// OpenStreetMap place search: most pins sit on the right area, not on the exact rank.
+const PLACE_NOTE = 'Pin is on the area, not on the exact rank. Drag it to the rank to fix it.';
+
 export const RANKS = [
-  { key: 'benoni', name: 'Benoni CBD', lat: -26.2093, lng: 28.28736, area: 'Benoni',
-    source: 'OpenStreetMap node 7661577320, Commissioner St',
-    note: 'May be the Benoni Station rank, which another source places at Voortrekker St and Station Rd.' },
-  { key: 'atlasville', name: 'Atlasville', lat: -26.15929, lng: 28.28054, area: 'Benoni',
-    source: 'OpenStreetMap node 1330392901, Reier Rd' },
-  { key: 'kleinfontein', name: 'Kleinfontein', lat: -26.1837, lng: 28.31863, area: 'Benoni',
-    source: 'OpenStreetMap node 1526145070, Voortrekker Rd' },
-  { key: 'modderbee', name: 'Modderbee', lat: -26.18715, lng: 28.39734, area: 'Modderbee',
-    source: 'OpenStreetMap node 7477582978, Isibusiso St' },
-  { key: 'brakpan', name: 'Brakpan Station', lat: -26.24046, lng: 28.36158, area: 'Brakpan',
-    source: 'OpenStreetMap node 7741737514, Station Rd' },
-  { key: 'karee', name: 'Brakpan Karee St', lat: -26.25268, lng: 28.33381, area: 'Brakpan',
-    source: 'OpenStreetMap node 5491750195, named "Taxi Rank ER011"' },
-  { key: 'springs', name: 'Springs', lat: -26.249, lng: 28.43887, area: 'Springs',
-    source: 'OpenStreetMap nodes 7496984604, 7496984605 and 7496984692, merged',
-    note: 'OSM has three points close together on 1st St and 1st East Ave.' },
-  { key: 'boksburg', name: 'Boksburg Railway St', lat: -26.21864, lng: 28.24519, area: 'Boksburg',
-    source: 'OpenStreetMap node 7661576728, Railway St' },
-  { key: 'jetpark', name: 'Jet Park', lat: -26.16756, lng: 28.20563, area: 'Jet Park',
-    source: 'OpenStreetMap node 7745711805, Jet Park Rd' },
-  { key: 'daveyton', name: 'Daveyton Main', lat: -26.167, lng: 28.411, area: 'Daveyton',
-    source: 'Placeholder position',
-    note: 'Position is a guess. Reported to be on Eiselen St. Drag this pin to the real rank.' },
-  { key: 'etwatwa', name: 'Etwatwa', lat: -26.118, lng: 28.443, area: 'Etwatwa',
-    source: 'Placeholder position',
-    note: 'Position is a guess: no Etwatwa rank is mapped in OpenStreetMap. Drag this pin to the real rank and add any others.' },
+  ...allRanks().map(({ region, rank }) => ({
+    key: rank.id, name: trackerName(rank), lat: rank.at[0], lng: rank.at[1], area: region.name,
+    verified: rank.exact, source: rank.exact ? 'Position sent by the association' : 'OpenStreetMap place search',
+    note: rank.exact ? null : PLACE_NOTE,
+  })),
+  ...Object.entries(PLACES).filter(([, p]) => !p.rank).map(([name, p]) => ({
+    key: name, name, lat: p.at[0], lng: p.at[1], area: name, source: 'OpenStreetMap place search', note: PLACE_NOTE,
+  })),
 ];
 
-// Placeholder routes. Each pair is created in both directions.
-export const ROUTE_PAIRS = [
-  ['etwatwa', 'daveyton'],
-  ['etwatwa', 'benoni'],
-  ['daveyton', 'benoni'],
-  ['benoni', 'brakpan'],
-  ['brakpan', 'springs'],
-  ['daveyton', 'springs'],
-];
+// One two-way route for every destination on a Danki rank's fare list.
+export const ROUTE_PAIRS = (() => {
+  const seen = new Set();
+  const pairs = [];
+  for (const { rank } of allRanks()) {
+    for (const d of rank.destinations) {
+      const pair = [rank.id, PLACES[d.name].rank ?? d.name];
+      const id = [...pair].sort().join('|');
+      if (seen.has(id)) continue;
+      seen.add(id);
+      pairs.push(pair);
+    }
+  }
+  return pairs;
+})();
 
 const DRIVERS = [
   'Sipho Nkosi', 'Thabo Mokoena', 'Bongani Dlamini', 'Lucky Mahlangu', 'Themba Khumalo', 'Mandla Zulu',
@@ -53,7 +44,7 @@ const DRIVERS = [
   'Godfrey Malinga', 'Lindiwe Hlongwane', 'Pule Seleka', 'Ntokozo Cele', 'Dumisani Nxumalo', 'Isaac Mashego',
 ];
 const OWNERS = ['M. Mahlangu Transport', 'Ndlovu Fleet', 'S. Khumalo', 'Masilela Bros', 'T. Zulu', 'Daveyton Ride Co (demo)'];
-const HOMES = ['etwatwa', 'etwatwa', 'daveyton', 'daveyton', 'benoni', 'etwatwa', 'daveyton', 'benoni', 'brakpan', 'springs'];
+const HOMES = ['etwatwa-las-vegas', 'etwatwa-las-vegas', 'barcelona', 'Daveyton', 'cloverdene', 'Benoni CBD', 'east-rand-mall', 'dunswart', 'lakeside', 'northmead-square', 'superspar', 'Springs'];
 
 function seeded(seed) {
   let s = seed;
@@ -82,7 +73,7 @@ export function seed(store) {
 
       const rankId = {};
       for (const r of RANKS) {
-        rankId[r.key] = store.createRank({ ...r, verified: false }).id;
+        rankId[r.key] = store.createRank({ ...r, verified: !!r.verified }).id;
       }
       for (const [a, b] of ROUTE_PAIRS) store.createRoute({ fromRankId: rankId[a], toRankId: rankId[b], bothWays: true });
 

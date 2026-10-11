@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Rank screen | BTA Rank Tracker</title>
-  <meta name="theme-color" content="#181b1e">
+  <meta name="theme-color" content="#000000">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="/img/icon-192.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap">
@@ -19,14 +19,17 @@
         <h1 id="b-rank">Rank screen</h1>
         <p class="board-sub">Taxis loading now. Board the first taxi for your destination.</p>
       </div>
-      <div class="clock" id="b-clock" aria-label="Time"></div>
+      <div class="board-right">
+        <div class="clock" id="b-clock" aria-label="Time"></div>
+        <img class="board-logo" src="/img/bta-logo.png" width="72" height="72" alt="Benoni Taxi Association">
+      </div>
     </div>
     <ul class="board-rows" id="b-rows" aria-live="polite"></ul>
     <p class="arrivals" id="b-arrivals"></p>
     <div class="board-foot">
       <span>Benoni Taxi Association. Demo data.</span>
       <label>Show rank <select class="input" id="b-switch"></select></label>
-      <a href="/" style="color:inherit">Back to the tracker</a>
+      <a href="/staff" style="color:inherit">Back to the tracker</a>
     </div>
   </main>
   <script type="module" src="/js/board.js"></script>

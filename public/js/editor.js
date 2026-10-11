@@ -93,8 +93,8 @@ function renderForm() {
   const wrap = $('#rank-form-wrap');
   if (!s) return;
   if (selected == null) {
-    wrap.innerHTML = `<div class="editor-form"><p class="hint">Pins marked "unverified" are best guesses: OpenStreetMap has no Etwatwa or Daveyton ranks, so those two are placeholders.
-      Drag each pin to the exact spot, then tick "Checked on the ground". Tap an empty part of the map to add a rank.</p></div>`;
+    wrap.innerHTML = `<div class="editor-form"><p class="hint">Every rank is already on the map. Pins marked "unverified" sit on the right area (found with OpenStreetMap place search), not on the exact rank.
+      To fix one, drag the pin to the exact spot, then tick "Checked on the ground". Tap an empty part of the map to add a rank.</p></div>`;
     return;
   }
   const isNew = selected === 'new';
@@ -113,7 +113,7 @@ function renderForm() {
       <label class="field">Area <input class="input" id="f-area" value="${esc(rank.area ?? '')}" placeholder="For example Etwatwa"></label>
       <label class="field">Notes <textarea class="input" id="f-note" rows="2">${esc(rank.note ?? '')}</textarea></label>
       <label class="check"><input type="checkbox" id="f-verified" ${rank.verified ? 'checked' : ''}> Checked on the ground</label>
-      <p class="small muted">Position <span id="f-coords">${fmt(lat)}, ${fmt(lng)}</span>${moved ? ' <b style="color:var(--amber-text)">moved, not saved yet</b>' : ''}</p>
+      <p class="small muted">Position <span id="f-coords">${fmt(lat)}, ${fmt(lng)}</span>${moved ? ' <b style="color:var(--accent-text)">moved, not saved yet</b>' : ''}</p>
       ${rank.source ? `<p class="small muted">Source: ${esc(rank.source)}</p>` : ''}
       <div class="btns">
         <button class="btn primary" type="submit">${isNew ? 'Save rank' : 'Save changes'}</button>
