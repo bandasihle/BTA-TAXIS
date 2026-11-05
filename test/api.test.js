@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { CONSENT_VERSION } from '../public/js/consent.js';
 
 const PORT = 4300 + Math.floor(Math.random() * 500);
 const BASE = `http://localhost:${PORT}`;
@@ -227,4 +228,49 @@ test('signing out ends the session', async () => {
   const cookie = await webLogin(ADMIN.phone, ADMIN.pin);
   assert.equal((await call('POST', '/api/logout', { cookie, body: {} })).status, 200);
   assert.equal((await call('GET', '/api/users', { cookie })).status, 401);
+});
+
+test('driver GPS: drivers only, their own taxi only, consent first; passengers see a dot only on a trip', async () => {
+  const snap = (await call('GET', '/api/snapshot')).data;
+  const taxi = snap.taxis.find((t) => t.plate === 'MA 12 RS GP');
+  const etwatwa = snap.ranks.find((r) => r.name === 'Etwatwa Las Vegas');
+  const created = await call('POST', '/api/users', { cookie: adminCookie, body: { name: 'Driver Sipho', phone: '0833333333', role: 'driver', taxiId: taxi.id } });
+  assert.equal(created.status, 201);
+  const login = await call('POST', '/api/login', { body: { phone: '0833333333', pin: created.data.pin, client: 'app' } });
+  const token = login.data.token;
+  assert.equal((await call('GET', '/api/driver', { token })).status, 403, 'must choose a PIN first');
+  await call('POST', '/api/me/pin', { token, body: { oldPin: created.data.pin, newPin: '603918' } });
+
+  const marshal = await webLogin('0822222222', '582047');
+  for (const cookie of [marshal, adminCookie]) {
+    assert.equal((await call('GET', '/api/driver', { cookie })).status, 403);
+    assert.equal((await call('POST', '/api/driver/consent', { cookie, body: { version: CONSENT_VERSION } })).status, 403);
+    assert.equal((await call('POST', '/api/driver/position', { cookie, body: { lat: etwatwa.lat, lng: etwatwa.lng, accuracy: 10, at: Date.now() } })).status, 403);
+  }
+  assert.equal((await call('POST', '/api/action', { token, body: { type: 'offDuty', taxiId: taxi.id } })).status, 403, 'drivers do not run the rank');
+
+  const me = await call('GET', '/api/driver', { token });
+  assert.deepEqual(me.data.taxi, { id: taxi.id, plate: 'MA 12 RS GP', status: 'QUEUED' });
+  assert.equal(me.data.consented, false);
+  const point = () => ({ lat: etwatwa.lat + 0.00123456, lng: etwatwa.lng, accuracy: 12, at: Date.now(), taxiId: 999999 });
+  assert.equal((await call('POST', '/api/driver/position', { token, body: point() })).status, 403, 'nothing before consent');
+  assert.equal((await call('POST', '/api/driver/consent', { token, body: { version: 'old' } })).status, 409);
+  assert.equal((await call('POST', '/api/driver/consent', { token, body: { version: CONSENT_VERSION } })).status, 200);
+
+  const atRank = await call('POST', '/api/driver/position', { token, body: point() });
+  assert.equal(atRank.data.stored, false, 'not used while the taxi waits at the rank');
+
+  await call('POST', '/api/action', { cookie: adminCookie, body: { type: 'seat', taxiId: taxi.id, delta: 1 } });
+  assert.equal((await call('POST', '/api/action', { cookie: adminCookie, body: { type: 'depart', taxiId: taxi.id } })).status, 200);
+  await new Promise((r) => setTimeout(r, 3_100)); // one point every 3 seconds
+  const sent = await call('POST', '/api/driver/position', { token, body: point() });
+  assert.equal(sent.data.stored, true, JSON.stringify(sent.data));
+  const dots = (await call('GET', '/api/positions')).data.filter((p) => p.gps);
+  assert.deepEqual(dots.map((p) => p.id), [taxi.id], "the point went to the driver's own taxi, not the one in the request");
+  assert.equal(dots[0].lat, +(etwatwa.lat + 0.00123456).toFixed(4));
+  assert.ok(!JSON.stringify(dots).includes('Sipho') && !('accuracy' in dots[0]));
+
+  assert.equal((await call('DELETE', '/api/driver/consent', { token })).status, 200);
+  assert.ok(!(await call('GET', '/api/positions')).data.some((p) => p.gps), 'withdrawing deletes the point');
+  assert.equal((await call('POST', '/api/driver/position', { token, body: point() })).status, 403);
 });

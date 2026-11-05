@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { checkTransition, STATUS, TransitionError } from '../server/state.js';
 import { openDb } from '../server/db.js';
-import { createStore, expectedTripMs } from '../server/store.js';
+import { createStore, expectedTripMs, toId } from '../server/store.js';
 import { seed, RANKS, ROUTE_PAIRS } from '../server/seed.js';
-import { RankPositionSource } from '../server/positions.js';
+import { PositionSource } from '../server/positions.js';
 import { lineLength } from '../server/geo.js';
 
 const taxi = (status, extra = {}) => ({ plate: 'AB 12 CD GP', capacity: 15, status, rank_id: 1, ...extra });
@@ -93,7 +93,7 @@ test('full journey: check in, load, depart, arrive, queue again', () => {
   for (let i = 0; i < 3; i++) store.act({ type: 'seat', taxiId: t.id, delta: 1 });
   assert.equal(store.snapshot().queue.find((q) => q.taxiId === t.id).seats, 3);
 
-  const source = new RankPositionSource(store);
+  const source = new PositionSource(store);
   assert.ok(source.getPositions().some((p) => p.id === t.id && p.status === 'LOADING' && p.rankId === t.rankId));
 
   store.act({ type: 'depart', taxiId: t.id });
@@ -161,4 +161,20 @@ test('a busy rank cannot be deleted', () => {
   const t = taxiAtEtwatwa(store);
   store.act({ type: 'checkIn', taxiId: t.id, rankId: t.rankId, routeId: t.route.id });
   assert.throws(() => store.deleteRank(t.rankId), /still has/);
+});
+
+test('ids from requests: whole positive numbers or plain digits, nothing that only looks like one', () => {
+  for (const [v, want] of [[1, 1], [42, 42], ['7', 7], ['123', 123]]) assert.equal(toId(v), want, JSON.stringify(v));
+  for (const v of [0, -1, 1.5, NaN, Infinity, '0', '01', '1e3', ' 1', '1 ', '0x1', '', null, undefined, true, [1], { valueOf: () => 1 }, 2 ** 60]) {
+    assert.equal(toId(v), null, String(v));
+  }
+});
+
+test('a taxi id that is not a plain number names no taxi, for the rank check and the action alike', () => {
+  const { store } = freshStore();
+  const t = taxiAtEtwatwa(store);
+  for (const v of [[t.id], String(t.id) + ' ', { toString: () => String(t.id) }]) {
+    assert.equal(store.rankForAction({ type: 'seat', taxiId: v }), null);
+    assert.throws(() => store.act({ type: 'offDuty', taxiId: v }), { status: 404 });
+  }
 });

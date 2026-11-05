@@ -18,7 +18,7 @@
   <main class="users">
     <div>
       <h1>Staff</h1>
-      <p class="muted">Everyone who can sign in. Marshals record taxis at their own rank only. Admins can do everything, including this page.</p>
+      <p class="muted">Everyone who can sign in. Marshals record taxis at their own rank only. Drivers share their taxi's position (after agreeing to the location notice). Admins can do everything, including this page.</p>
     </div>
 
     <form class="users-add" id="add" novalidate>
@@ -32,6 +32,7 @@
         </select>
       </label>
       <label class="field" id="add-rank-wrap">Rank <select class="input" id="add-rank"></select></label>
+      <label class="field" id="add-taxi-wrap" hidden>Taxi they drive <select class="input" id="add-taxi"></select></label>
       <button class="btn primary" type="submit">Add person</button>
     </form>
 

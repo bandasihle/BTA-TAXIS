@@ -90,7 +90,19 @@ CREATE TABLE IF NOT EXISTS users (
   locked_until INTEGER,
   active INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL,
-  last_login_at INTEGER
+  last_login_at INTEGER,
+  taxi_id INTEGER REFERENCES taxis(id) ON DELETE SET NULL,
+  location_consent_at INTEGER,
+  location_consent_version TEXT
+);
+-- The latest GPS point per taxi, and nothing older: no location history is kept.
+CREATE TABLE IF NOT EXISTS positions (
+  taxi_id INTEGER PRIMARY KEY REFERENCES taxis(id) ON DELETE CASCADE,
+  lat REAL NOT NULL,
+  lng REAL NOT NULL,
+  accuracy REAL NOT NULL,
+  at INTEGER NOT NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS sessions (
   id INTEGER PRIMARY KEY,
@@ -123,6 +135,9 @@ function migrate(db) {
     db.prepare('UPDATE ranks SET slug = ? WHERE id = ?').run(`${slugify(r.name) || 'rank'}-${r.id}`, r.id);
   }
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS ranks_slug ON ranks(slug)');
+  if (!has('users', 'taxi_id')) db.exec('ALTER TABLE users ADD COLUMN taxi_id INTEGER REFERENCES taxis(id) ON DELETE SET NULL');
+  if (!has('users', 'location_consent_at')) db.exec('ALTER TABLE users ADD COLUMN location_consent_at INTEGER');
+  if (!has('users', 'location_consent_version')) db.exec('ALTER TABLE users ADD COLUMN location_consent_version TEXT');
 }
 
 /** "Etwatwa Las Vegas" -> "etwatwa-las-vegas", for links. */

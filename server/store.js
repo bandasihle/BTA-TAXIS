@@ -17,6 +17,17 @@ export class HttpError extends Error {
   }
 }
 
+/**
+ * A row id from a request: a positive whole number, or digits as text (from a URL or a form).
+ * Anything else ([1], '1e3', true, ' 1') is null, so a permission check and the action it
+ * guards can never read the same input as two different ids.
+ */
+export function toId(v) {
+  if (Number.isSafeInteger(v) && v > 0) return v;
+  if (typeof v === 'string' && /^[1-9]\d{0,14}$/.test(v)) return Number(v);
+  return null;
+}
+
 const AT_RANK = [STATUS.ARRIVED, STATUS.QUEUED, STATUS.LOADING];
 
 // Expected time on the road, for "arriving in about 20 min": an average taxi speed plus
@@ -62,7 +73,8 @@ export function createStore(db, opts = {}) {
   const changed = () => emitter.emit('change');
 
   const byId = (table, label) => (id) => {
-    const row = one(`SELECT * FROM ${table} WHERE id = ?`, Number(id));
+    const n = toId(id);
+    const row = n && one(`SELECT * FROM ${table} WHERE id = ?`, n);
     if (!row) throw new HttpError(404, `That ${label} does not exist.`);
     return row;
   };
@@ -151,6 +163,7 @@ export function createStore(db, opts = {}) {
           const route = trip ? one('SELECT * FROM routes WHERE id = ?', trip.route_id) : null;
           const destId = route?.to_rank_id ?? null;
           if (trip) run('UPDATE trips SET arrived_at = ? WHERE id = ?', now(), trip.id);
+          run('DELETE FROM positions WHERE taxi_id = ?', taxi.id); // at the rank now: its GPS point is no longer needed
           run('UPDATE taxis SET status = ?, rank_id = ?, trip_id = NULL WHERE id = ?', destId ? STATUS.ARRIVED : STATUS.OFF_DUTY, destId, taxi.id);
           log(taxi.id, 'ARRIVED', destId, route?.id, by, destId ? `Arrived at ${rankName(destId)}` : 'Arrived; its route was removed');
           return { message: destId ? `${taxi.plate} arrived at ${rankName(destId)}` : `${taxi.plate} arrived` };
@@ -172,6 +185,7 @@ export function createStore(db, opts = {}) {
             compact(entry.route_id);
           }
           run('UPDATE taxis SET status = ?, trip_id = NULL WHERE id = ?', STATUS.OFF_DUTY, taxi.id);
+          run('DELETE FROM positions WHERE taxi_id = ?', taxi.id);
           log(taxi.id, 'OFF_DUTY', taxi.rank_id, entry?.route_id, by, 'Went off duty');
           return { message: `${taxi.plate} is off duty` };
         }
@@ -202,8 +216,9 @@ export function createStore(db, opts = {}) {
    * where it is queued or waiting, or (for an arrival) where its trip ends. Null when unknown.
    */
   function rankForAction(input = {}) {
-    if (input.type === 'checkIn') return Number(input.rankId) || null;
-    const taxi = one('SELECT * FROM taxis WHERE id = ?', Number(input.taxiId));
+    if (input.type === 'checkIn') return toId(input.rankId);
+    const taxiId = toId(input.taxiId);
+    const taxi = taxiId && one('SELECT * FROM taxis WHERE id = ?', taxiId);
     if (!taxi) return null;
     if (input.type === 'arrive') {
       return one('SELECT r.to_rank_id AS id FROM trips t JOIN routes r ON r.id = t.route_id WHERE t.id = ?', taxi.trip_id)?.id ?? null;

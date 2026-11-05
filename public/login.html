@@ -20,7 +20,7 @@
 
     <form class="signin-card" id="signin" novalidate>
       <h1>Staff sign in</h1>
-      <p class="muted">For marshals and the association office. Passengers don't need an account.</p>
+      <p class="muted">For marshals, drivers and the association office. Passengers don't need an account.</p>
       <label class="field">Cellphone number
         <input class="input" id="phone" type="tel" inputmode="tel" autocomplete="username" placeholder="082 123 4567" maxlength="20" required>
       </label>
@@ -44,12 +44,6 @@
       <p class="signin-error" id="newpin-error" role="alert" hidden></p>
       <button class="btn primary" type="submit">Save PIN</button>
     </form>
-
-    <div class="signin-card" id="driver" hidden>
-      <h1>Signed in</h1>
-      <p class="muted">Driver mode is coming next: it will share your taxi's position while you drive. There is nothing to do here yet.</p>
-      <button class="btn" type="button" id="driver-out">Sign out</button>
-    </div>
   </main>
   <script type="module" src="/js/login.js"></script>
 </body>

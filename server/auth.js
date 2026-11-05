@@ -10,7 +10,8 @@
 //   ticket that lives 30 seconds, instead of putting the token in a URL.
 import crypto from 'node:crypto';
 import { promisify } from 'node:util';
-import { HttpError } from './store.js';
+import { HttpError, toId } from './store.js';
+import { CONSENT_VERSION } from '../public/js/consent.js';
 
 const scrypt = promisify(crypto.scrypt);
 
@@ -83,19 +84,29 @@ export function createAuth(db, opts = {}) {
   const publicUser = (u) => u && ({
     id: u.id, name: u.name, phone: u.phone, role: u.role, rankId: u.rank_id, active: !!u.active,
     mustChangePin: !!u.must_change_pin, lockedUntil: u.locked_until && u.locked_until > now() ? u.locked_until : null,
-    lastLoginAt: u.last_login_at,
+    lastLoginAt: u.last_login_at, taxiId: u.taxi_id ?? null,
+    locationConsentVersion: u.location_consent_version ?? null, locationConsentAt: u.location_consent_at ?? null,
   });
 
   const getUser = (id) => {
-    const u = one('SELECT * FROM users WHERE id = ?', Number(id));
+    const n = toId(id);
+    const u = n && one('SELECT * FROM users WHERE id = ?', n);
     if (!u) throw new HttpError(404, 'That staff member does not exist.');
     return u;
   };
 
   function validRank(role, rankId) {
     if (role !== 'marshal') return null;
-    const id = Number(rankId);
-    if (!Number.isInteger(id) || !one('SELECT id FROM ranks WHERE id = ?', id)) throw new HttpError(400, 'Choose the rank this marshal works at.');
+    const id = toId(rankId);
+    if (!id || !one('SELECT id FROM ranks WHERE id = ?', id)) throw new HttpError(400, 'Choose the rank this marshal works at.');
+    return id;
+  }
+
+  /** A driver drives one registered taxi; nobody else is linked to a taxi. */
+  function validTaxi(role, taxiId) {
+    if (role !== 'driver' || taxiId == null || taxiId === '') return null;
+    const id = toId(taxiId);
+    if (!id || !one('SELECT id FROM taxis WHERE id = ?', id)) throw new HttpError(400, 'Choose a registered taxi for this driver.');
     return id;
   }
 
@@ -127,6 +138,7 @@ export function createAuth(db, opts = {}) {
     const role = String(input.role ?? '');
     if (!ROLES.includes(role)) throw new HttpError(400, 'Choose a role: admin, marshal or driver.');
     const rankId = validRank(role, input.rankId);
+    const taxiId = validTaxi(role, input.taxiId);
     if (one('SELECT id FROM users WHERE phone = ?', phone)) throw new HttpError(409, 'Someone already has an account with that phone number.');
     // A PIN chosen by someone else is temporary: the person must set their own when they sign in.
     let pin = input.pin;
@@ -134,8 +146,8 @@ export function createAuth(db, opts = {}) {
     else if (pinProblem(pin)) throw new HttpError(400, pinProblem(pin));
     const hash = await hashPin(pin);
     const res = run(
-      'INSERT INTO users (name, phone, role, rank_id, pin_hash, must_change_pin, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)',
-      name, phone, role, rankId, hash, now(),
+      'INSERT INTO users (name, phone, role, rank_id, taxi_id, pin_hash, must_change_pin, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?)',
+      name, phone, role, rankId, taxiId, hash, now(),
     );
     return { user: publicUser(getUser(res.lastInsertRowid)), pin, message: `${name} added` };
   }
@@ -147,13 +159,16 @@ export function createAuth(db, opts = {}) {
     const active = input.active !== undefined ? (input.active ? 1 : 0) : u.active;
     const name = input.name !== undefined ? cleanName(input.name) : u.name;
     const rankId = role === 'marshal' ? validRank(role, input.rankId !== undefined ? input.rankId : u.rank_id) : null;
+    const taxiId = validTaxi(role, input.taxiId !== undefined ? input.taxiId : u.taxi_id);
     if (u.role === 'admin' && u.active && (role !== 'admin' || !active) && activeAdmins() <= 1) {
       throw new HttpError(409, 'This is the only admin. Make someone else an admin first.');
     }
     if (u.id === actor.id && (role !== 'admin' || !active)) throw new HttpError(409, 'You cannot remove your own admin access.');
-    run('UPDATE users SET name = ?, role = ?, rank_id = ?, active = ? WHERE id = ?', name, role, rankId, active, u.id);
+    run('UPDATE users SET name = ?, role = ?, rank_id = ?, taxi_id = ?, active = ? WHERE id = ?', name, role, rankId, taxiId, active, u.id);
     if (!active || role !== u.role) endSessions(u.id); // signed out everywhere when access changes
-    return { user: publicUser(getUser(u.id)), message: `${name} saved` };
+    // the old taxi's GPS point came from this driver: drop it when they stop driving it
+    const leftTaxi = u.taxi_id != null && (u.taxi_id !== taxiId || !active) ? u.taxi_id : null;
+    return { user: publicUser(getUser(u.id)), message: `${name} saved`, leftTaxi };
   }
 
   async function resetPin(id) {
@@ -174,6 +189,20 @@ export function createAuth(db, opts = {}) {
     // Other devices are signed out; this one keeps its session.
     run('DELETE FROM sessions WHERE user_id = ? AND id != ?', u.id, user.sessionId);
     return { message: 'PIN changed' };
+  }
+
+  // ---------------------------------------------------------------- location consent (POPIA)
+
+  function giveConsent(user, version) {
+    if (user.role !== 'driver') throw new HttpError(403, 'Only drivers share their location.');
+    if (version !== CONSENT_VERSION) throw new HttpError(409, 'The location notice has changed. Reload and read the new one.');
+    run('UPDATE users SET location_consent_at = ?, location_consent_version = ? WHERE id = ?', now(), CONSENT_VERSION, user.id);
+    return { message: 'Thank you. You can start sharing.' };
+  }
+
+  function withdrawConsent(user) {
+    run('UPDATE users SET location_consent_at = NULL, location_consent_version = NULL WHERE id = ?', user.id);
+    return { message: 'Consent withdrawn. Your position is deleted and nothing more is shared.' };
   }
 
   const listUsers = () => all('SELECT * FROM users ORDER BY active DESC, name').map(publicUser);
@@ -258,7 +287,7 @@ export function createAuth(db, opts = {}) {
   const hasUsers = () => one('SELECT COUNT(*) AS n FROM users').n > 0;
 
   return {
-    createUser, updateUser, resetPin, changePin, listUsers, login, authenticate, logout,
+    createUser, updateUser, resetPin, changePin, listUsers, login, authenticate, logout, giveConsent, withdrawConsent,
     sessionAlive, streamTicket, redeemTicket, hasUsers,
   };
 }

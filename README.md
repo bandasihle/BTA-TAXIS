@@ -61,7 +61,7 @@ Settings (environment variables): `PORT` (default 3000), `DB_FILE` (default `dat
 
 Passengers need no account. Staff sign in at `/login` with their cellphone number and a 6-digit PIN.
 
-- **Roles.** Admins can do everything, including managing staff at `/users`. Marshals record taxis at their own rank only. Drivers can sign in; driver mode (GPS) comes next. Every request is checked on the server; hidden links are only a convenience.
+- **Roles.** Admins can do everything, including managing staff at `/users`. Marshals record taxis at their own rank only. Drivers share their own taxi's position from `/driver` (see below). Every request is checked on the server; hidden links are only a convenience.
 - **Accounts.** Only an admin can add people. A new or reset PIN is shown to the admin once, and the person must choose their own at first sign-in. Weak PINs (`111111`, `123456`) are refused.
 - **PINs** are stored as scrypt hashes with a salt per person. 5 wrong PINs lock an account for 15 minutes, and each device gets 20 tries per 15 minutes. A wrong phone number and a wrong PIN get the same answer, so nobody can find out who has an account.
 - **Sessions** last 7 days. Only a hash of the session token is stored. The website keeps it in an HttpOnly, SameSite=Strict cookie and refuses changes that come from other sites; the Android app sends it as a Bearer token and gets a one-time, 30-second ticket for the live stream. Switching an account off, changing its role or resetting its PIN signs it out on every phone.
@@ -76,7 +76,8 @@ Passengers need no account. Staff sign in at `/login` with their cellphone numbe
 | `/` | Danki Driver: a map and list of province, region, rank, then destination, time and price, with the routes drawn on the map. Links like `/#/gauteng/benoni-ekurhuleni/etwatwa-las-vegas` open a rank directly. |
 | `/login` | Staff sign in, and choosing your own PIN. |
 | `/staff` | Staff home. |
-| `/users` | Admins: add staff, change roles and ranks, switch accounts off, make new PINs. |
+| `/driver` | Drivers: read and accept the location notice, then start and stop sharing their taxi's position. |
+| `/users` | Admins: add staff, change roles and ranks, link drivers to their taxi, switch accounts off, make new PINs. |
 | `/fares` | Admins: each rank's destinations, hours and prices for passengers, and the log of changes. |
 | `/marshal?rank=<id>` | Phone screen for the rank marshal: check taxis in, add passengers, depart, reorder, mark arrivals. Taps made with no signal are saved on the phone and sent later. |
 | `/dashboard` | Association office: live map, queue per rank, trip log, taxi search and history. |
@@ -86,7 +87,20 @@ Passengers need no account. Staff sign in at `/login` with their cellphone numbe
 ## How tracking works
 
 1. **Rank events (real).** A marshal moves each taxi through `OFF_DUTY → QUEUED → LOADING → EN_ROUTE → ARRIVED`. The rules are in `server/state.js`; illegal moves (such as departing before check-in) are rejected with a message the marshal can act on.
-2. **Positions.** `server/positions.js` has a `RankPositionSource`: a taxi at a rank is shown at that rank. Taxis on the road have no map position yet; screens list them with an expected arrival (an average 40 km/h plus stops), and the marshal at the destination records the arrival. Driver GPS will be a source with the same `getPositions` method; no screen needs to change.
+2. **Positions.** `server/positions.js` (`PositionSource`): a taxi at a rank is shown at that rank. A taxi on a trip is shown where its driver's phone last said, if the driver is sharing; otherwise screens list it with an expected arrival (an average 40 km/h plus stops). A shared position within 150 m of the destination rank, accurate to 100 m, records the arrival by itself (logged as `GPS (driver name)`); otherwise the marshal there records it.
+
+## Driver GPS and privacy (POPIA)
+
+Location is personal information, so the rules are strict and enforced on the server:
+
+- **Consent first.** A driver sees a plain-language notice (`public/js/consent.js`: who, what, why, who sees it, how long, their rights) and must agree before anything is accepted. The notice has a version; if it changes, every driver must agree again. Drivers can withdraw at any time from `/driver`, which deletes their taxi's point immediately.
+- **Driver starts it.** Nothing is sent until the driver presses Start, and only while that screen is open. The Android app asks for location permission at that moment, not at install.
+- **Only the latest point.** One row per taxi, no history. It is deleted when the taxi arrives or goes off duty, when consent is withdrawn or the driver is unlinked, and after 10 minutes without an update.
+- **Only on a trip.** Points sent while the taxi waits at a rank or is off duty are not kept.
+- **Not trusted.** A point must come from the signed-in driver linked to that taxi (a taxi id in the request is ignored), lie inside South Africa, be under 2 minutes old by the server's clock, not imply more than 180 km/h since the last one, and arrive at most once every 3 seconds.
+- **What passengers see.** Only for taxis on a trip, and only while the point is under 2 minutes old: a dot rounded to about 10 m with the plate and expected arrival. Never the driver's name, the accuracy or the time.
+
+Admins link a driver to a taxi on `/users`.
 
 ## Layout
 
@@ -116,11 +130,12 @@ This prototype uses a plain Node server, Node's built-in SQLite and vanilla JS r
 
 ## API
 
-Public: `GET /api/snapshot`, `GET /api/stream` (SSE; `?pos=1` adds positions every second). Staff (signed in): `GET /api/stream?staff=1` (cookie, or `&ticket=` from `POST /api/stream-ticket`) for the full view; `POST /api/action` with `{type, taxiId, ...}` where type is `checkIn` (`rankId`, `routeId`), `seat` (`delta` ±1), `depart`, `arrive`, `remove`, `offDuty` or `move` (`dir` up or down). Also `POST /api/taxis`, `GET /api/taxis/:id/history`. Admins: `POST/PUT/DELETE /api/ranks`, `POST/DELETE /api/routes`, `PUT/DELETE /api/routes/:id/fare {from, until, price}`, `GET/POST /api/users`, `PUT /api/users/:id`, `POST /api/users/:id/pin`. Anyone: `POST /api/login {phone, pin, client?}`, `POST /api/logout`, `GET /api/me`, `POST /api/me/pin {oldPin, newPin}`.
+Public: `GET /api/snapshot`, `GET /api/stream` (SSE; `?pos=1` adds positions every second). Staff (signed in): `GET /api/stream?staff=1` (cookie, or `&ticket=` from `POST /api/stream-ticket`) for the full view; `POST /api/action` with `{type, taxiId, ...}` where type is `checkIn` (`rankId`, `routeId`), `seat` (`delta` ±1), `depart`, `arrive`, `remove`, `offDuty` or `move` (`dir` up or down). Also `POST /api/taxis`, `GET /api/taxis/:id/history`. Admins: `POST/PUT/DELETE /api/ranks`, `POST/DELETE /api/routes`, `PUT/DELETE /api/routes/:id/fare {from, until, price}`, `GET/POST /api/users`, `PUT /api/users/:id`, `POST /api/users/:id/pin`. Drivers: `GET /api/driver`, `POST /api/driver/consent {version}`, `DELETE /api/driver/consent`, `POST /api/driver/position {lat, lng, accuracy, at}`. Public: `GET /api/positions`. Anyone: `POST /api/login {phone, pin, client?}`, `POST /api/logout`, `GET /api/me`, `POST /api/me/pin {oldPin, newPin}`.
 
 ## Known gaps
 
 - Locking an account after wrong PINs means someone who knows a marshal's number can lock them out for 15 minutes at a time. An admin can see the lock on `/users`.
+- Sharing stops when the driver leaves the screen or the phone locks; background location in the Android app is a later step.
 - Rank pins other than Etwatwa Las Vegas sit on the right area, not the exact rank.
 - Map tiles come from openstreetmap.org and need a connection.
 - Routes follow the fastest road for a car, from the free OSRM route planner (router.project-osrm.org), which is not always the road taxis take. The fare-list routes are saved in `server/roads.json`; a route added or moved in the editor fetches its road when it is saved and keeps a stand-in line if the planner cannot be reached.

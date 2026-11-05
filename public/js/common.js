@@ -139,6 +139,7 @@ export const session = {
 export function homeFor(user) {
   if (user?.role === 'admin') return '/dashboard.html';
   if (user?.role === 'marshal') return `/marshal.html?rank=${user.rankId}`;
+  if (user?.role === 'driver') return '/driver.html';
   return '/login.html';
 }
 

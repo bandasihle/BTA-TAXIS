@@ -13,12 +13,11 @@ function nextPage(user) {
 }
 
 function show(form) {
-  for (const el of [signin, newpin, $('#driver')]) el.hidden = el !== form;
+  for (const el of [signin, newpin]) el.hidden = el !== form;
   form.querySelector('input, button')?.focus();
 }
 
 function done(user) {
-  if (user.role === 'driver') return show($('#driver'));
   location.replace(nextPage(user));
 }
 
@@ -87,5 +86,3 @@ newpin.addEventListener('submit', async (e) => {
     button.disabled = false;
   }
 });
-
-$('#driver-out').addEventListener('click', signOut);

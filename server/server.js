@@ -4,7 +4,8 @@ import path from 'node:path';
 import { openDb, DEFAULT_DB } from './db.js';
 import { createStore, HttpError } from './store.js';
 import { createAuth } from './auth.js';
-import { RankPositionSource } from './positions.js';
+import { PositionSource } from './positions.js';
+import { CONSENT_VERSION } from '../public/js/consent.js';
 import { seed } from './seed.js';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -19,7 +20,8 @@ const db = openDb(process.env.DB_FILE || DEFAULT_DB);
 const store = createStore(db, { fetchRoads: true });
 if (store.isEmpty()) seed(store);
 const auth = createAuth(db);
-const positions = new RankPositionSource(store);
+const positions = new PositionSource(store);
+setInterval(() => positions.sweep(), 60_000).unref();
 
 // The first admin, when there are no accounts yet: from secret environment variables (on a
 // host with no shell), or with `npm run create-admin` on the machine itself.
@@ -236,6 +238,30 @@ async function api(req, res, url) {
   }
   if (m === 'POST' && p === '/api/stream-ticket') return json(res, 200, auth.streamTicket(need(req, STAFF)));
 
+  // drivers: their taxi, the location notice, and GPS points
+  if (m === 'GET' && p === '/api/driver') {
+    const user = need(req, ['driver']);
+    const taxi = user.taxiId ? db.prepare('SELECT id, plate, status FROM taxis WHERE id = ?').get(user.taxiId) : null;
+    return json(res, 200, {
+      name: user.name, taxi: taxi ?? null, consentVersion: CONSENT_VERSION,
+      consented: user.locationConsentVersion === CONSENT_VERSION, consentedAt: user.locationConsentAt,
+    });
+  }
+  if (m === 'POST' && p === '/api/driver/consent') {
+    const user = need(req, ['driver']);
+    return json(res, 200, auth.giveConsent(user, (await readBody(req)).version));
+  }
+  if (m === 'DELETE' && p === '/api/driver/consent') {
+    const user = need(req, ['driver']);
+    const r = auth.withdrawConsent(user);
+    positions.forget(user.taxiId);
+    return json(res, 200, r);
+  }
+  if (m === 'POST' && p === '/api/driver/position') {
+    const user = need(req, ['driver']);
+    return json(res, 200, positions.record(user, await readBody(req)));
+  }
+
   // rank work: marshals at their own rank, admins anywhere
   if (m === 'POST' && p === '/api/action') {
     const user = need(req, STAFF);
@@ -290,7 +316,8 @@ async function api(req, res, url) {
   }
   if (m === 'PUT' && (match = p.match(/^\/api\/users\/(\d+)$/))) {
     const user = need(req, ['admin']);
-    const r = auth.updateUser(user, match[1], await readBody(req));
+    const { leftTaxi, ...r } = auth.updateUser(user, match[1], await readBody(req));
+    if (leftTaxi != null) positions.forget(leftTaxi);
     closeDeadStreams();
     store.emitChange(); // marshal names on the staff screens
     return json(res, 200, r);
@@ -310,6 +337,7 @@ async function api(req, res, url) {
 const PAGES = {
   '/': 'index.html', '/staff': 'staff.html', '/marshal': 'marshal.html', '/dashboard': 'dashboard.html',
   '/editor': 'editor.html', '/board': 'board.html', '/login': 'login.html', '/users': 'users.html', '/fares': 'fares.html',
+  '/driver': 'driver.html',
 };
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
