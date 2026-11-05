@@ -196,12 +196,31 @@ test('passengers get the public stream; the staff stream needs a staff sign-in',
   assert.equal((await firstSnapshot(`/api/stream?staff=1&ticket=${data.ticket}`)).status, 401, 'a ticket works once');
 });
 
+test('only admins change fares; passengers see the result straight away', async () => {
+  const snap = (await call('GET', '/api/snapshot')).data;
+  const etwatwa = snap.ranks.find((r) => r.name === 'Etwatwa Las Vegas');
+  const route = snap.routes.find((r) => r.fromRankId === etwatwa.id && snap.fares.some((f) => f.routeId === r.id));
+  const body = { from: '05:00', until: '21:00', price: 27.5 };
+  assert.equal((await call('PUT', `/api/routes/${route.id}/fare`, { body })).status, 401);
+  const marshal = await webLogin('0822222222', '582047');
+  assert.equal((await call('PUT', `/api/routes/${route.id}/fare`, { cookie: marshal, body })).status, 403);
+  assert.equal((await call('DELETE', `/api/routes/${route.id}/fare`, { cookie: marshal })).status, 403);
+  assert.equal((await call('PUT', `/api/routes/${route.id}/fare`, { cookie: adminCookie, body, origin: 'https://evil.example' })).status, 403);
+  assert.equal((await call('PUT', `/api/routes/${route.id}/fare`, { cookie: adminCookie, body: { ...body, price: -1 } })).status, 400);
+  assert.equal((await call('PUT', `/api/routes/${route.id}/fare`, { cookie: adminCookie, body })).status, 200);
+  const fare = (await call('GET', '/api/snapshot')).data.fares.find((f) => f.routeId === route.id);
+  assert.deepEqual(fare, { routeId: route.id, ...body });
+  const pub = await firstSnapshot('/api/stream');
+  assert.ok(pub.snap.fares.every((f) => !('updatedBy' in f)), 'passengers do not see who set a fare');
+});
+
 test('pages carry security headers', async () => {
   const res = await fetch(`${BASE}/staff.html`);
   assert.match(res.headers.get('content-security-policy'), /default-src 'self'/);
   assert.match(res.headers.get('content-security-policy'), /frame-ancestors 'none'/);
   assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
   assert.equal(res.headers.get('x-frame-options'), 'DENY');
+  assert.equal(res.headers.get('referrer-policy'), 'strict-origin-when-cross-origin', 'map tiles need the site name, not the page path');
 });
 
 test('signing out ends the session', async () => {

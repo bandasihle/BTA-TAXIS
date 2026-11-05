@@ -1,22 +1,23 @@
 import { pathToFileURL } from 'node:url';
-import { openDb, DEFAULT_DB } from './db.js';
+import { openDb, DEFAULT_DB, slugify } from './db.js';
 import { createStore } from './store.js';
 import { PLACES, allRanks, trackerName } from '../public/js/fares.js';
 
-// Ranks and routes come from the Danki Driver directory (public/js/fares.js), so the
-// passenger app, the dashboard and the rank editor all show the same places. Every Danki
-// rank becomes a rank here, and so does every place taxis go to. Positions come from
-// OpenStreetMap place search: most pins sit on the right area, not on the exact rank.
+// The starting ranks, routes and fares come from the association's list (public/js/fares.js).
+// After that they live in the database and admins change them in the app. Every rank on the
+// list becomes a rank people board at (with its region), and every other place taxis go to
+// becomes a destination-only rank. Positions come from OpenStreetMap place search: most pins
+// sit on the right area, not on the exact rank.
 const PLACE_NOTE = 'Pin is on the area, not on the exact rank. Drag it to the rank to fix it.';
 
 export const RANKS = [
   ...allRanks().map(({ region, rank }) => ({
-    key: rank.id, name: trackerName(rank), lat: rank.at[0], lng: rank.at[1], area: region.name,
+    key: rank.id, slug: rank.id, regionId: region.id, name: trackerName(rank), lat: rank.at[0], lng: rank.at[1], area: region.name,
     verified: rank.exact, source: rank.exact ? 'Position sent by the association' : 'OpenStreetMap place search',
     note: rank.exact ? null : PLACE_NOTE,
   })),
   ...Object.entries(PLACES).filter(([, p]) => !p.rank).map(([name, p]) => ({
-    key: name, name, lat: p.at[0], lng: p.at[1], area: name, source: 'OpenStreetMap place search', note: PLACE_NOTE,
+    key: name, slug: slugify(name), name, lat: p.at[0], lng: p.at[1], area: name, source: 'OpenStreetMap place search', note: PLACE_NOTE,
   })),
 ];
 
@@ -48,6 +49,13 @@ export function seed(store) {
       const rankId = {};
       for (const r of RANKS) rankId[r.key] = store.createRank({ ...r, verified: !!r.verified }).id;
       for (const [a, b] of ROUTE_PAIRS) store.createRoute({ fromRankId: rankId[a], toRankId: rankId[b], bothWays: true });
+      const routeId = new Map(store.snapshot().routes.map((r) => [`${r.fromRankId}>${r.toRankId}`, r.id]));
+      for (const { rank } of allRanks()) {
+        for (const d of rank.destinations) {
+          const to = rankId[PLACES[d.name].rank ?? d.name];
+          store.setFare(routeId.get(`${rankId[rank.id]}>${to}`), { from: d.from, until: d.until, price: d.price }, 'Association list');
+        }
+      }
     });
   });
 }
@@ -56,7 +64,8 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const db = openDb(process.env.DB_FILE || DEFAULT_DB);
   try {
     seed(createStore(db));
-    console.log(`Loaded ${RANKS.length} ranks and ${ROUTE_PAIRS.length * 2} routes.`);
+    const fares = allRanks().reduce((n, { rank }) => n + rank.destinations.length, 0);
+    console.log(`Loaded ${RANKS.length} ranks, ${ROUTE_PAIRS.length * 2} routes and ${fares} fares.`);
   } catch (err) {
     console.error(err.message);
     process.exitCode = 1;

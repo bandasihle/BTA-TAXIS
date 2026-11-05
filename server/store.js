@@ -2,6 +2,13 @@ import { EventEmitter } from 'node:events';
 import { checkTransition, STATUS, TransitionError } from './state.js';
 import { roadLine, lineLength } from './geo.js';
 import { savedRoad, fetchRoad } from './roads.js';
+import { slugify } from './db.js';
+import { PROVINCES } from '../public/js/fares.js';
+
+const REGION_IDS = new Set(PROVINCES.flatMap((p) => p.regions.map((r) => r.id)));
+const TIME = /^(([01]\d|2[0-3]):[0-5]\d|24:00)$/;
+const minutesOf = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+const MAX_PRICE = 2000;
 
 export class HttpError extends Error {
   constructor(status, message) {
@@ -17,6 +24,8 @@ const AT_RANK = [STATUS.ARRIVED, STATUS.QUEUED, STATUS.LOADING];
 const AVG_SPEED_KMH = 40;
 const STOPS_MS = 5 * 60_000;
 export const expectedTripMs = (km) => Math.round((km / AVG_SPEED_KMH) * 3_600_000 + STOPS_MS);
+
+const rand = (cents) => `R${cents % 100 ? (cents / 100).toFixed(2) : cents / 100}`;
 
 export function normalizePlate(plate) {
   return String(plate ?? '').toUpperCase().replace(/[^A-Z0-9 -]/g, '').replace(/\s+/g, ' ').trim();
@@ -285,14 +294,29 @@ export function createStore(db, opts = {}) {
     if (input.note !== undefined) out.note = String(input.note ?? '').trim() || null;
     if (input.verified !== undefined) out.verified = input.verified ? 1 : 0;
     if (input.source !== undefined) out.source = String(input.source ?? '').trim() || null;
+    if (input.regionId !== undefined) {
+      // A rank with a region is listed for passengers to board at; without one it is only a destination.
+      const regionId = input.regionId == null || input.regionId === '' ? null : String(input.regionId);
+      if (regionId !== null && !REGION_IDS.has(regionId)) throw new HttpError(400, 'Choose one of the listed regions.');
+      out.region_id = regionId;
+    }
     return out;
+  }
+
+  /** A link-safe name for a new rank, unique among ranks. */
+  function uniqueSlug(wanted, name) {
+    const base = (/^[a-z0-9-]{1,50}$/.test(String(wanted ?? '')) ? wanted : slugify(name)) || 'rank';
+    let slug = base;
+    for (let n = 2; one('SELECT id FROM ranks WHERE slug = ?', slug); n++) slug = `${base}-${n}`;
+    return slug;
   }
 
   function createRank(input = {}) {
     const f = validRankFields(input);
     const res = run(
-      'INSERT INTO ranks (name, lat, lng, area, verified, source, note) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO ranks (name, lat, lng, area, verified, source, note, slug, region_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       f.name, f.lat, f.lng, f.area ?? null, f.verified ?? 0, f.source ?? 'Added in the rank editor', f.note ?? null,
+      uniqueSlug(input.slug, f.name), f.region_id ?? null,
     );
     changed();
     return { id: Number(res.lastInsertRowid), message: `${f.name} added` };
@@ -365,6 +389,55 @@ export function createStore(db, opts = {}) {
     return { message: `${label} deleted` };
   }
 
+  // ---------------------------------------------------------------- fares
+
+  /**
+   * Sets the passenger fare on a route: the hours taxis run and the price. One fare per
+   * route. Every change goes in the event log with who made it and what it was before.
+   */
+  function setFare(routeId, input = {}, by = 'admin') {
+    const route = getRoute(routeId);
+    // exact types only: a list like ["04:00"] would otherwise slip through as text
+    const from = typeof input.from === 'string' ? input.from : '';
+    const until = typeof input.until === 'string' ? input.until : '';
+    if (!TIME.test(from) || !TIME.test(until)) throw new HttpError(400, 'Times must look like 04:30. Use 24:00 for midnight.');
+    if (minutesOf(from) >= minutesOf(until)) throw new HttpError(400, 'The last taxi must leave after the first one.');
+    const price = typeof input.price === 'number' || typeof input.price === 'string' ? Number(input.price) : NaN;
+    const cents = Math.round(price * 100);
+    if (!Number.isFinite(price) || price <= 0 || price > MAX_PRICE || Math.abs(cents - price * 100) > 1e-6) {
+      throw new HttpError(400, `Enter the price in rand, more than 0 and up to R${MAX_PRICE}, like 25 or 12.50.`);
+    }
+    const label = `${rankName(route.from_rank_id)} to ${rankName(route.to_rank_id)}`;
+    const before = one('SELECT * FROM fares WHERE route_id = ?', route.id);
+    const text = (f) => `${f.from_time}–${f.until_time}, ${rand(f.price_cents)}`;
+    const after = { from_time: from, until_time: until, price_cents: cents };
+    if (before && text(before) === text(after)) return { message: 'Nothing to change' };
+    tx(() => {
+      run(
+        `INSERT INTO fares (route_id, from_time, until_time, price_cents, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT (route_id) DO UPDATE SET from_time = excluded.from_time, until_time = excluded.until_time,
+           price_cents = excluded.price_cents, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
+        route.id, from, until, cents, now(), by,
+      );
+      log(null, 'FARE', route.from_rank_id, route.id, by, before ? `${label}: ${text(before)} changed to ${text(after)}` : `${label}: fare set to ${text(after)}`);
+    });
+    changed();
+    return { message: `${label} saved` };
+  }
+
+  function deleteFare(routeId, by = 'admin') {
+    const route = getRoute(routeId);
+    const before = one('SELECT * FROM fares WHERE route_id = ?', route.id);
+    if (!before) throw new HttpError(404, 'That route has no fare.');
+    const label = `${rankName(route.from_rank_id)} to ${rankName(route.to_rank_id)}`;
+    tx(() => {
+      run('DELETE FROM fares WHERE route_id = ?', route.id);
+      log(null, 'FARE', route.from_rank_id, route.id, by, `${label}: fare removed (was ${before.from_time}–${before.until_time}, ${rand(before.price_cents)})`);
+    });
+    changed();
+    return { message: `${label} is no longer shown to passengers` };
+  }
+
   // ---------------------------------------------------------------- reads
 
   const mapTrip = (t) => ({
@@ -378,7 +451,11 @@ export function createStore(db, opts = {}) {
   function snapshot() {
     return {
       ranks: all('SELECT * FROM ranks ORDER BY name').map((r) => ({
-        id: r.id, name: r.name, lat: r.lat, lng: r.lng, area: r.area, verified: !!r.verified, source: r.source, note: r.note,
+        id: r.id, slug: r.slug, name: r.name, lat: r.lat, lng: r.lng, area: r.area, regionId: r.region_id,
+        verified: !!r.verified, source: r.source, note: r.note,
+      })),
+      fares: all('SELECT * FROM fares ORDER BY route_id').map((f) => ({
+        routeId: f.route_id, from: f.from_time, until: f.until_time, price: f.price_cents / 100, updatedAt: f.updated_at, updatedBy: f.updated_by,
       })),
       routes: all('SELECT * FROM routes ORDER BY id').map((r) => {
         const polyline = JSON.parse(r.polyline);
@@ -407,8 +484,9 @@ export function createStore(db, opts = {}) {
   function publicSnapshot() {
     const s = snapshot();
     return {
-      ranks: s.ranks.map(({ id, name, lat, lng, area }) => ({ id, name, lat, lng, area })),
+      ranks: s.ranks.map(({ id, slug, name, lat, lng, area, regionId, verified }) => ({ id, slug, name, lat, lng, area, regionId, verified })),
       routes: s.routes,
+      fares: s.fares.map(({ routeId, from, until, price }) => ({ routeId, from, until, price })),
       taxis: s.taxis.map(({ id, plate, capacity, status, rankId, tripId }) => ({ id, plate, capacity, status, rankId, tripId })),
       queue: s.queue.map(({ id, taxiId, rankId, routeId, position, seats, status }) => ({ id, taxiId, rankId, routeId, position, seats, status })),
       trips: s.trips.filter((t) => !t.arrivedAt).map(({ id, taxiId, routeId, departedAt, durationMs }) => ({ id, taxiId, routeId, departedAt, durationMs })),
@@ -424,6 +502,7 @@ export function createStore(db, opts = {}) {
 
   return {
     db, tx, act, rankForAction, createTaxi, taxiHistory, createRank, updateRank, deleteRank, createRoute, deleteRoute,
+    setFare, deleteFare,
     snapshot, publicSnapshot, isEmpty, now,
     on: (...a) => emitter.on(...a),
     off: (...a) => emitter.off(...a),

@@ -18,7 +18,7 @@ Two parts for the Benoni Taxi Association:
 - **Danki Driver** (passenger app, `/`). Pick a province, then a region, then a rank, on the map or in the list, and see each destination with the hours taxis run and the price. Built from the association's brief in `docs/danki-driver-app.pdf`. On a rank's screen it also shows, live: whether each destination is running now ("Last taxi in 40 min", "Closed, opens 04:00", in South African time), the taxi loading for it (seats filled, no queue numbers), taxis driving to and from the rank on the map (once drivers' phones send GPS), and a trip preview with a rough travel time. Loading taxis come from what marshals record.
 - **Rank tracker** (staff, `/staff`). Tracks which taxi is where: rank queues, loading, departures and taxis on the road between Etwatwa, Daveyton, Benoni and nearby ranks.
 
-**Danki Driver data.** All nine provinces are listed. Only Gauteng > Benoni Ekurhuleni has ranks so far. The Etwatwa Las Vegas destinations, times and prices come from the association. The other ranks (Barcelona, Cloverdene, Lakeside, Dunswart, Northmead Square, East Rand Mall, SuperSpar) are listed with no fares until the association sends them. Fares are in `public/js/fares.js`.
+**Danki Driver data.** All nine provinces are listed. Only Gauteng > Benoni Ekurhuleni has ranks so far. Ranks, destinations, times and prices live in the database and admins change them on the **Fares** page (`/fares`); passengers' phones update straight away and keep the last copy for when there is no signal. A route without a fare is not shown to passengers. A rank is listed for passengers when it has a region (set in Ranks and routes); without one it is a destination only. Every fare change is logged with who made it and the old and new values. The first run loads the association's list from `public/js/fares.js`: Etwatwa Las Vegas with its fares, and the other ranks (Barcelona, Cloverdene, Lakeside, Dunswart, Northmead Square, East Rand Mall, SuperSpar) with none yet.
 
 **Places.** The passenger app, the dashboard and the rank editor all use the same places from `public/js/fares.js`, so they are already on the map. Etwatwa Las Vegas is at the spot the association gave. The others were found with OpenStreetMap place search and sit on the right area, not the exact rank ("Danstreet" in the brief is Dunswart, "Jimeston" is Germiston). Barcelona is only placed inside Etwatwa.
 
@@ -67,7 +67,7 @@ Passengers need no account. Staff sign in at `/login` with their cellphone numbe
 - **Sessions** last 7 days. Only a hash of the session token is stored. The website keeps it in an HttpOnly, SameSite=Strict cookie and refuses changes that come from other sites; the Android app sends it as a Bearer token and gets a one-time, 30-second ticket for the live stream. Switching an account off, changing its role or resetting its PIN signs it out on every phone.
 - **Audit.** "Who did it" in the trip log comes from the session, never from what the phone sends.
 - **Public data.** Passengers see ranks, routes, plates and seats. Driver, owner and marshal names and the trip log go only to signed-in staff.
-- **Headers.** Every response has a Content-Security-Policy, `X-Frame-Options: DENY`, `nosniff` and a strict referrer policy.
+- **Headers.** Every response has a Content-Security-Policy, `X-Frame-Options: DENY`, `nosniff`, and a referrer policy that sends other sites only our site name (OpenStreetMap needs it for map tiles), never the page path.
 
 ## Screens
 
@@ -77,6 +77,7 @@ Passengers need no account. Staff sign in at `/login` with their cellphone numbe
 | `/login` | Staff sign in, and choosing your own PIN. |
 | `/staff` | Staff home. |
 | `/users` | Admins: add staff, change roles and ranks, switch accounts off, make new PINs. |
+| `/fares` | Admins: each rank's destinations, hours and prices for passengers, and the log of changes. |
 | `/marshal?rank=<id>` | Phone screen for the rank marshal: check taxis in, add passengers, depart, reorder, mark arrivals. Taps made with no signal are saved on the phone and sent later. |
 | `/dashboard` | Association office: live map, queue per rank, trip log, taxi search and history. |
 | `/board?rank=<id>` | Big-text rank screen for passengers. |
@@ -104,7 +105,7 @@ server/
   create-admin.js  `npm run create-admin`
   db.js       SQLite schema
 public/       Danki Driver and the five staff screens (vanilla JS modules, Leaflet map), PWA manifest + service worker
-  js/fares.js Danki Driver provinces, regions, ranks, destinations, times and prices
+  js/fares.js provinces and regions, the association's starting ranks and fares, buildDirectory() for the passenger app
 docs/         the association's Danki Driver brief and the original BTA logo
 test/         node:test suites
 ```
@@ -115,7 +116,7 @@ This prototype uses a plain Node server, Node's built-in SQLite and vanilla JS r
 
 ## API
 
-Public: `GET /api/snapshot`, `GET /api/stream` (SSE; `?pos=1` adds positions every second). Staff (signed in): `GET /api/stream?staff=1` (cookie, or `&ticket=` from `POST /api/stream-ticket`) for the full view; `POST /api/action` with `{type, taxiId, ...}` where type is `checkIn` (`rankId`, `routeId`), `seat` (`delta` ±1), `depart`, `arrive`, `remove`, `offDuty` or `move` (`dir` up or down). Also `POST /api/taxis`, `GET /api/taxis/:id/history`. Admins: `POST/PUT/DELETE /api/ranks`, `POST/DELETE /api/routes`, `GET/POST /api/users`, `PUT /api/users/:id`, `POST /api/users/:id/pin`. Anyone: `POST /api/login {phone, pin, client?}`, `POST /api/logout`, `GET /api/me`, `POST /api/me/pin {oldPin, newPin}`.
+Public: `GET /api/snapshot`, `GET /api/stream` (SSE; `?pos=1` adds positions every second). Staff (signed in): `GET /api/stream?staff=1` (cookie, or `&ticket=` from `POST /api/stream-ticket`) for the full view; `POST /api/action` with `{type, taxiId, ...}` where type is `checkIn` (`rankId`, `routeId`), `seat` (`delta` ±1), `depart`, `arrive`, `remove`, `offDuty` or `move` (`dir` up or down). Also `POST /api/taxis`, `GET /api/taxis/:id/history`. Admins: `POST/PUT/DELETE /api/ranks`, `POST/DELETE /api/routes`, `PUT/DELETE /api/routes/:id/fare {from, until, price}`, `GET/POST /api/users`, `PUT /api/users/:id`, `POST /api/users/:id/pin`. Anyone: `POST /api/login {phone, pin, client?}`, `POST /api/logout`, `GET /api/me`, `POST /api/me/pin {oldPin, newPin}`.
 
 ## Known gaps
 

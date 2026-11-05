@@ -6,9 +6,23 @@
 // On a rank's screen it also shows the tracker's live taxis: which destinations are
 // running right now, the taxi loading for each one, taxis driving on the map, and a trip
 // preview. Passengers never see queue numbers.
+//
+// Ranks and fares come from the server (admins edit them in the app). The last copy is kept
+// on the phone, so fares still show with no signal.
 
-import { PROVINCES, PLACES, lookup, timeLabel, trackerName, runningNow, saMinutes } from './fares.js';
-import { esc, registerServiceWorker, connect } from './common.js';
+import { lookup, buildDirectory, priceLabel, timeLabel, runningNow, saMinutes } from './fares.js';
+import { esc, local, registerServiceWorker, connect } from './common.js';
+
+let cached = local.get('directory');
+let tree;
+let loaded = false;
+try {
+  tree = buildDirectory(cached ?? {});
+  loaded = !!cached;
+} catch {
+  cached = null; // a copy from an older version of the app; wait for the server instead
+  tree = buildDirectory();
+}
 
 const view = document.getElementById('view');
 const trail = document.getElementById('trail');
@@ -64,11 +78,10 @@ function drawMap(province, region, rank) {
   if (rank) {
     for (const k of region.ranks) if (k !== rank) pin(k.at, { label: shortName(k), kind: 'rank', dim: true, bare: true, link: href(province.id, region.id, k.id) });
     for (const d of rank.destinations) {
-      const other = PLACES[d.name].rank;
       pin(d.at, {
-        label: `${d.name}  R${d.price}`, kind: 'dest',
-        title: `${d.name}, R${d.price}`,
-        link: other ? href(province.id, region.id, other) : null,
+        label: `${d.name}  ${priceLabel(d.price)}`, kind: 'dest',
+        title: `${d.name}, ${priceLabel(d.price)}`,
+        link: d.toPath ? href(...d.toPath) : null,
       });
     }
     pin(rank.at, { label: shortName(rank), kind: 'here' });
@@ -83,8 +96,8 @@ function drawMap(province, region, rank) {
     if (!province.regions.length) pin(province.at, { label: province.name, tag: `<em>${province.code}</em>`, dim: true });
     fit(province.regions.length ? province.regions.map((r) => r.at) : [province.at], 7);
   } else {
-    for (const p of PROVINCES) pin(p.at, { label: p.name, tag: `<em>${p.code}</em>`, dim: !p.regions.length, link: href(p.id) });
-    fit(PROVINCES.map((p) => p.at), 6);
+    for (const p of tree) pin(p.at, { label: p.name, tag: `<em>${p.code}</em>`, dim: !p.regions.length, link: href(p.id) });
+    fit(tree.map((p) => p.at), 6);
   }
 }
 
@@ -103,7 +116,7 @@ function empty(text) {
 function provinces() {
   return `<h1>Where are you catching a taxi?</h1>
     <p class="dk-lede">Pick your province on the map or in the list.</p>
-    ${list(PROVINCES.map((p) => ({
+    ${list(tree.map((p) => ({
       link: href(p.id),
       tag: `<span class="dk-code" aria-hidden="true">${p.code}</span>`,
       name: p.name,
@@ -123,6 +136,7 @@ function regions(province) {
 }
 
 function ranks(province, region) {
+  if (!region.ranks.length && !loaded) return `<h1>${esc(region.name)}</h1><p class="dk-empty">Loading ranks and fares…</p>`;
   if (!region.ranks.length) return `<h1>${esc(region.name)}</h1>${empty(`Ranks in ${region.name} have not been added yet.`)}`;
   return `<h1>${esc(region.name)}</h1>
     <p class="dk-lede">Pick the rank you are at.</p>
@@ -148,7 +162,7 @@ function fares(province, region, rank) {
           <div class="dk-fare-main">
             <span class="dk-to"><small>${esc(from)}</small><span class="dk-arrow" aria-hidden="true">→</span><span class="vh">to </span>${esc(d.name)}</span>
             <span class="dk-time">${timeLabel(d.from)} – ${timeLabel(d.until)}</span>
-            <span class="dk-price"><span class="dk-r">R</span>${d.price}</span>
+            <span class="dk-price"><span class="dk-r">R</span>${priceLabel(d.price).slice(1)}</span>
           </div>
           <div class="dk-live">
             <span class="dk-open" data-open></span>
@@ -176,10 +190,15 @@ function crumbs(province, region, rank) {
 let first = true;
 function render() {
   const ids = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
-  const { province, region, rank } = lookup(ids);
+  const { province, region, rank } = lookup(ids, tree);
 
-  // An unknown link falls back to the deepest part that exists.
+  // An unknown link falls back to the deepest part that exists (once the ranks are loaded,
+  // so a rank link opened with no signal waits instead of losing its place).
   const depth = rank ? 3 : region ? 2 : province ? 1 : 0;
+  if (ids.length > depth && !loaded && region) {
+    view.innerHTML = `<h1>${esc(region.name)}</h1><p class="dk-empty">Loading ranks and fares…</p>`;
+    return;
+  }
   if (ids.length > depth) {
     location.replace(depth ? href(...ids.slice(0, depth)) : '#/');
     return;
@@ -208,20 +227,13 @@ function render() {
 
 let snap = null;
 let positions = [];
+let lastData = null;
 
 /** The tracker routes out to and back from each destination of the open rank. */
 function links() {
   const { rank } = current;
   if (!rank || !snap) return null;
-  const byName = new Map(snap.ranks.map((r) => [r.name, r]));
-  const here = byName.get(trackerName(rank));
-  if (!here) return null;
-  return rank.destinations.map((d) => {
-    const there = byName.get(trackerName(d.name));
-    const out = there && snap.routes.find((r) => r.fromRankId === here.id && r.toRankId === there.id);
-    const back = there && snap.routes.find((r) => r.fromRankId === there.id && r.toRankId === here.id);
-    return { out, back };
-  });
+  return rank.destinations.map((d) => ({ out: snap.routeById.get(d.routeId), back: snap.routeById.get(d.backRouteId) }));
 }
 
 function seatBar(seats, capacity) {
@@ -352,7 +364,7 @@ function previewTrip(i, button) {
     keyboard: false, interactive: false, zIndexOffset: 2000,
   }).addTo(tripLayer);
   map.fitBounds(L.latLngBounds(line), { paddingTopLeft: [40, 100], paddingBottomRight: [Math.min(150, map.getSize().x * 0.25), 40], maxZoom: 14 }); // room for the trip box and labels
-  tripBox.innerHTML = `<b>${esc(shortName(rank))} to ${esc(d.name)}</b><span>About ${duration(total / 1000)} on the road. R${d.price}.</span>`;
+  tripBox.innerHTML = `<b>${esc(shortName(rank))} to ${esc(d.name)}</b><span>About ${duration(total / 1000)} on the road. ${priceLabel(d.price)}.</span>`;
   tripBox.hidden = false;
   if (map.getContainer().getBoundingClientRect().top < 0) map.getContainer().scrollIntoView({ behavior: reduceMotion.matches ? 'auto' : 'smooth' });
 
@@ -379,6 +391,15 @@ connect({
   pos: true,
   onSnapshot(s) {
     snap = s;
+    const data = { ranks: s.ranks, routes: s.routes, fares: s.fares };
+    const changed = !loaded || JSON.stringify(data) !== JSON.stringify(lastData ?? cached);
+    lastData = data;
+    if (changed) {
+      tree = buildDirectory(data);
+      loaded = true;
+      local.set('directory', data);
+      if (tripBox.hidden) render();
+    }
     if (tripBox.hidden) drawRouteLines(); // leave a trip preview alone; the lines catch up when it closes
     updateLive();
     drawTaxis();

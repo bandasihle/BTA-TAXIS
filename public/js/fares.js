@@ -1,6 +1,9 @@
 // Danki Driver directory: province > region > rank > destination, time and price.
-// Shared by the passenger app (map + list) and the tracker's ranks and routes (server/seed.js),
-// so both always show the same places.
+//
+// The provinces and regions below are fixed. The ranks and fares in them are the starting
+// data from the association: server/seed.js loads them into an empty database, and from then
+// on admins change ranks and fares in the app. The passenger app builds its directory from the
+// server's data with buildDirectory(), not from this file.
 //
 // Times are 24-hour "HH:MM"; "24:00" means the last taxi leaves at midnight.
 // Destinations, times and prices come from the association (docs/danki-driver-app.pdf).
@@ -70,11 +73,53 @@ export function timeLabel(t) {
 }
 
 /** Finds the province, region and rank for a path like ['gauteng', 'benoni-ekurhuleni', 'barcelona']. */
-export function lookup([p, r, k] = []) {
-  const province = PROVINCES.find((x) => x.id === p) ?? null;
+export function lookup([p, r, k] = [], provinces = PROVINCES) {
+  const province = provinces.find((x) => x.id === p) ?? null;
   const region = province?.regions.find((x) => x.id === r) ?? null;
   const rankItem = region?.ranks.find((x) => x.id === k) ?? null;
   return { province, region, rank: rankItem };
+}
+
+/**
+ * The passenger directory from the server's ranks, routes and fares: the fixed provinces and
+ * regions, each region with the ranks in it, and each rank with its destinations (routes out
+ * that have a fare). Same shape as PROVINCES, so the passenger app works the same way.
+ *
+ * rank:        { id (link slug), dbId, name, at, exact, destinations }
+ * destination: { name, at, from, until, price, routeId, backRouteId, toPath (link to it as a rank, or null) }
+ */
+export function buildDirectory({ ranks = [], routes = [], fares = [] } = {}) {
+  const fareByRoute = new Map(fares.map((f) => [f.routeId, f]));
+  const rankById = new Map(ranks.map((r) => [r.id, r]));
+  const regionPath = new Map(PROVINCES.flatMap((p) => p.regions.map((g) => [g.id, p.id])));
+  const pathTo = (r) => (r.regionId && regionPath.has(r.regionId) ? [regionPath.get(r.regionId), r.regionId, r.slug] : null);
+
+  const toRank = (r) => ({
+    id: r.slug, dbId: r.id, name: r.name, at: [r.lat, r.lng], exact: !!r.verified,
+    destinations: routes
+      .filter((x) => x.fromRankId === r.id && fareByRoute.has(x.id) && rankById.has(x.toRankId))
+      .map((x) => {
+        const f = fareByRoute.get(x.id);
+        const there = rankById.get(x.toRankId);
+        const back = routes.find((y) => y.fromRankId === x.toRankId && y.toRankId === r.id);
+        return { name: there.name, at: [there.lat, there.lng], from: f.from, until: f.until, price: f.price, routeId: x.id, backRouteId: back?.id ?? null, toPath: pathTo(there) };
+      }),
+  });
+
+  return PROVINCES.map((p) => ({
+    ...p,
+    regions: p.regions.map((g) => ({
+      ...g,
+      ranks: ranks.filter((r) => r.regionId === g.id).map(toRank)
+        // ranks with fares first, then by name
+        .sort((a, b) => (b.destinations.length > 0) - (a.destinations.length > 0) || a.name.localeCompare(b.name)),
+    })),
+  }));
+}
+
+/** "R40" or "R12.50". */
+export function priceLabel(price) {
+  return `R${Number.isInteger(price) ? price : price.toFixed(2)}`;
 }
 
 /** Every rank, with the region and province it belongs to. */

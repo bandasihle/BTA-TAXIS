@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Fares | BTA Rank Tracker</title>
+  <meta name="theme-color" content="#262a7d">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/img/icon-192.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/app.css">
+  <script>try{var t=localStorage.getItem('bta:theme');if(t)document.documentElement.dataset.theme=JSON.parse(t)}catch(e){}</script>
+</head>
+<body>
+  <header id="topbar"></header>
+  <main class="users fares-page">
+    <div>
+      <h1>Fares</h1>
+      <p class="muted">The destinations, hours and prices passengers see in Danki Driver. Changes show on passengers' phones straight away, and every change is logged with who made it.</p>
+    </div>
+    <label class="field fares-rank">Rank
+      <select class="input" id="rank"></select>
+    </label>
+    <div id="rank-note"></div>
+    <ul class="user-list" id="fares" aria-live="polite"></ul>
+    <form class="users-add fares-add" id="add" novalidate>
+      <label class="field">Add a destination from this rank <select class="input" id="add-to"></select></label>
+      <button class="btn" type="submit">Add destination</button>
+    </form>
+    <section>
+      <h2 class="section-title">Recent fare changes at this rank</h2>
+      <ul class="plist" id="log"></ul>
+    </section>
+  </main>
+  <script type="module" src="/js/fares-admin.js"></script>
+</body>
+</html>

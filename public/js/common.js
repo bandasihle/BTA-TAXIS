@@ -60,6 +60,7 @@ const NAV = [
   ['/marshal.html', 'Marshal', ['admin', 'marshal']],
   ['/board.html', 'Rank screen', ['admin', 'marshal']],
   ['/editor.html', 'Ranks &amp; routes', ['admin']],
+  ['/fares.html', 'Fares', ['admin']],
   ['/users.html', 'Staff', ['admin']],
 ];
 

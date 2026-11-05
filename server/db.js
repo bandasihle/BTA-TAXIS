@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS ranks (
   area TEXT,
   verified INTEGER NOT NULL DEFAULT 0,
   source TEXT,
-  note TEXT
+  note TEXT,
+  slug TEXT,
+  region_id TEXT
 );
 CREATE TABLE IF NOT EXISTS routes (
   id INTEGER PRIMARY KEY,
@@ -21,6 +23,14 @@ CREATE TABLE IF NOT EXISTS routes (
   to_rank_id INTEGER NOT NULL REFERENCES ranks(id) ON DELETE CASCADE,
   polyline TEXT NOT NULL,
   UNIQUE (from_rank_id, to_rank_id)
+);
+CREATE TABLE IF NOT EXISTS fares (
+  route_id INTEGER PRIMARY KEY REFERENCES routes(id) ON DELETE CASCADE,
+  from_time TEXT NOT NULL,
+  until_time TEXT NOT NULL,
+  price_cents INTEGER NOT NULL CHECK (price_cents > 0),
+  updated_at INTEGER NOT NULL,
+  updated_by TEXT
 );
 CREATE TABLE IF NOT EXISTS drivers (
   id INTEGER PRIMARY KEY,
@@ -100,5 +110,23 @@ export function openDb(file = DEFAULT_DB) {
   db.exec('PRAGMA foreign_keys = ON;');
   if (file !== ':memory:') db.exec('PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  migrate(db);
   return db;
+}
+
+/** Brings a database made by an older version up to date. Each step is safe to run again. */
+function migrate(db) {
+  const has = (table, column) => db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column);
+  if (!has('ranks', 'slug')) db.exec('ALTER TABLE ranks ADD COLUMN slug TEXT');
+  if (!has('ranks', 'region_id')) db.exec('ALTER TABLE ranks ADD COLUMN region_id TEXT');
+  for (const r of db.prepare('SELECT id, name FROM ranks WHERE slug IS NULL').all()) {
+    db.prepare('UPDATE ranks SET slug = ? WHERE id = ?').run(`${slugify(r.name) || 'rank'}-${r.id}`, r.id);
+  }
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS ranks_slug ON ranks(slug)');
+}
+
+/** "Etwatwa Las Vegas" -> "etwatwa-las-vegas", for links. */
+export function slugify(name) {
+  return String(name ?? '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50);
 }

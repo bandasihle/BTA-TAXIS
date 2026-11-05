@@ -272,6 +272,11 @@ async function api(req, res, url) {
     need(req, ['admin']);
     return json(res, 200, store.deleteRoute(match[1]));
   }
+  if ((match = p.match(/^\/api\/routes\/(\d+)\/fare$/)) && (m === 'PUT' || m === 'DELETE')) {
+    const user = need(req, ['admin']);
+    if (m === 'PUT') return json(res, 200, store.setFare(match[1], await readBody(req), user.name));
+    return json(res, 200, store.deleteFare(match[1], user.name));
+  }
 
   // staff accounts: admins. A new or reset PIN is shown once, to the admin, and never stored in plain text.
   if (m === 'GET' && p === '/api/users') {
@@ -304,7 +309,7 @@ async function api(req, res, url) {
 
 const PAGES = {
   '/': 'index.html', '/staff': 'staff.html', '/marshal': 'marshal.html', '/dashboard': 'dashboard.html',
-  '/editor': 'editor.html', '/board': 'board.html', '/login': 'login.html', '/users': 'users.html',
+  '/editor': 'editor.html', '/board': 'board.html', '/login': 'login.html', '/users': 'users.html', '/fares': 'fares.html',
 };
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -371,7 +376,7 @@ function securityHeaders(req, res) {
   res.setHeader('Content-Security-Policy', CSP);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin'); // OpenStreetMap needs to know the site asking for tiles; never the path
   res.setHeader('Permissions-Policy', 'geolocation=(self), camera=(), microphone=()');
   if (isHttps(req)) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
 }

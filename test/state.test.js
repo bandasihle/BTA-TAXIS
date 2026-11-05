@@ -66,14 +66,15 @@ function taxiAtEtwatwa(store, plate = 'AB 12 CD GP') {
   return { id, rankId: etwatwa.id, route };
 }
 
-test('seed loads only ranks and two-way routes: no taxis, drivers or marshals', () => {
+test('seed loads ranks, two-way routes and the association fares: no taxis, drivers or marshals', () => {
   const { store } = freshStore();
   const s = store.snapshot();
   assert.equal(s.ranks.length, RANKS.length);
   assert.equal(s.routes.length, ROUTE_PAIRS.length * 2);
   assert.equal(s.taxis.length, 0);
   assert.equal(s.marshals.length, 0);
-  assert.equal(s.events.length, 0);
+  assert.ok(s.events.every((e) => e.type === 'FARE' && e.by === 'Association list'), 'only the starting fares are logged');
+  assert.equal(s.fares.length, 5, 'Etwatwa Las Vegas has its 5 fares from the association');
 });
 
 test('seed refuses to run on a database that already has ranks', () => {

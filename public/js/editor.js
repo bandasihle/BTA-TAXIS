@@ -1,4 +1,5 @@
 /* global L */
+import { PROVINCES } from './fares.js';
 import { $, esc, renderTopbar, requireStaff, connect, api, toast, confirmDialog, busy, FOOTER, registerServiceWorker } from './common.js';
 
 const me = await requireStaff(['admin']);
@@ -99,7 +100,7 @@ function renderForm() {
     return;
   }
   const isNew = selected === 'new';
-  const rank = isNew ? { name: '', area: '', note: '', verified: false, source: '' } : s.rankById.get(selected);
+  const rank = isNew ? { name: '', area: '', note: '', verified: false, source: '', regionId: null } : s.rankById.get(selected);
   if (!rank) {
     selected = null;
     renderForm();
@@ -112,6 +113,12 @@ function renderForm() {
       <h2>${isNew ? 'New rank' : `Edit ${esc(rank.name)}`}</h2>
       <label class="field">Name <input class="input" id="f-name" required maxlength="60" value="${esc(rank.name)}" placeholder="For example Etwatwa Ext 8"></label>
       <label class="field">Area <input class="input" id="f-area" value="${esc(rank.area ?? '')}" placeholder="For example Etwatwa"></label>
+      <label class="field">Region in Danki Driver
+        <select class="input" id="f-region">
+          <option value="">None: a destination only, passengers don't board here</option>
+          ${PROVINCES.filter((p) => p.regions.length).map((p) => `<optgroup label="${esc(p.name)}">${p.regions.map((g) => `<option value="${g.id}"${g.id === rank.regionId ? ' selected' : ''}>${esc(g.name)}</option>`).join('')}</optgroup>`).join('')}
+        </select>
+      </label>
       <label class="field">Notes <textarea class="input" id="f-note" rows="2">${esc(rank.note ?? '')}</textarea></label>
       <label class="check"><input type="checkbox" id="f-verified" ${rank.verified ? 'checked' : ''}> Checked on the ground</label>
       <p class="small muted">Position <span id="f-coords">${fmt(lat)}, ${fmt(lng)}</span>${moved ? ' <b style="color:var(--accent-text)">moved, not saved yet</b>' : ''}</p>
@@ -147,6 +154,7 @@ function renderForm() {
     const body = {
       name: $('#f-name').value,
       area: $('#f-area').value,
+      regionId: $('#f-region').value || null,
       note: $('#f-note').value,
       verified: $('#f-verified').checked,
       lat: draft?.lat ?? rank.lat,

@@ -514,3 +514,12 @@ a.role:hover h2 { text-decoration: underline; text-decoration-thickness: 2px; te
 .tag { display: inline-block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); }
 .tag.warn { color: var(--stop); border-color: currentColor; }
 .pin-reveal { font-family: var(--font-cond); font-size: 44px; font-weight: 700; letter-spacing: 0.2em; text-align: center; padding: 8px; border: 2px dashed var(--line); border-radius: var(--r-s); user-select: all; }
+
+/* ---------------------------------------------------------------- fares */
+.fares-rank { max-width: 420px; }
+.fare-row { align-items: flex-start; }
+.fare-form { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: flex-end; }
+.fare-form .field { width: 120px; }
+.fare-form .check { align-self: center; }
+.fares-add { grid-template-columns: minmax(0, 1fr) auto; }
+@media (max-width: 760px) { .fares-add { grid-template-columns: 1fr; } .fare-form .field { width: calc(50% - 6px); } }
