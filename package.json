@@ -12,9 +12,16 @@
     "dev": "node --disable-warning=ExperimentalWarning --watch-path=server server/server.js",
     "seed": "node --disable-warning=ExperimentalWarning server/seed.js",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\"",
-    "roads": "node --disable-warning=ExperimentalWarning server/fetch-roads.js"
+    "roads": "node --disable-warning=ExperimentalWarning server/fetch-roads.js",
+    "app:build": "node server/build-app.js && cap sync android",
+    "app:open": "cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
     "leaflet": "1.9.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
   }
 }

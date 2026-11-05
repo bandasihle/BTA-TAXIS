@@ -1,6 +1,6 @@
 import { $, esc, local, renderTopbar, connect, FOOTER, registerServiceWorker, mark } from './common.js';
 
-renderTopbar('/staff');
+renderTopbar('/staff.html');
 $('#footer').innerHTML = FOOTER;
 registerServiceWorker();
 
@@ -27,10 +27,10 @@ connect({
 $('#marshal-go').addEventListener('submit', (e) => {
   e.preventDefault();
   const id = $('#marshal-rank').value;
-  if (id) location.href = `/marshal?rank=${id}`;
+  if (id) location.href = `/marshal.html?rank=${id}`;
 });
 $('#board-go').addEventListener('submit', (e) => {
   e.preventDefault();
   const id = $('#board-rank').value;
-  if (id) location.href = `/board?rank=${id}`;
+  if (id) location.href = `/board.html?rank=${id}`;
 });

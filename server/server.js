@@ -158,9 +158,26 @@ function serveStatic(req, res, url) {
 
 // ------------------------------------------------------------------ server
 
+// The Android app loads its pages from the phone (https://localhost) and calls this API.
+const APP_ORIGINS = new Set(['https://localhost', 'capacitor://localhost', 'http://localhost']);
+
+function allowApp(req, res) {
+  const origin = req.headers.origin;
+  if (!APP_ORIGINS.has(origin)) return;
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Vary', 'Origin');
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
+    if (url.pathname.startsWith('/api/')) allowApp(req, res);
+    if (req.method === 'OPTIONS' && url.pathname.startsWith('/api/')) {
+      res.writeHead(204);
+      return res.end();
+    }
     if (url.pathname.startsWith('/api/')) await api(req, res, url);
     else if (req.method === 'GET' || req.method === 'HEAD') serveStatic(req, res, url);
     else throw new HttpError(405, 'Method not allowed.');

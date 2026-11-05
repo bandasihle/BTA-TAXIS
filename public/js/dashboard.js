@@ -4,7 +4,7 @@ import {
   whereIs, confirmDialog, registerServiceWorker, STATUS_LABEL, STATUS_ORDER,
 } from './common.js';
 
-renderTopbar('/dashboard');
+renderTopbar('/dashboard.html');
 registerServiceWorker();
 
 // ------------------------------------------------------------------ state
@@ -201,7 +201,7 @@ function ranksHtml() {
       <div class="rank-card-head"><h3>${esc(rank.name)}</h3>${rank.verified ? '' : '<span class="guess">Unverified pin</span>'}</div>
       ${lines || '<p class="muted small">No routes from this rank.</p>'}
       ${extra ? `<p class="rank-extra">${extra}.</p>` : ''}
-      <p class="rank-extra"><a href="/marshal?rank=${rank.id}">Open marshal view</a> &nbsp; <a href="/board?rank=${rank.id}">Rank screen</a></p>
+      <p class="rank-extra"><a href="/marshal.html?rank=${rank.id}">Open marshal view</a> &nbsp; <a href="/board.html?rank=${rank.id}">Rank screen</a></p>
     </li>`;
   }).join('') || '<li class="empty">No ranks match this route.</li>'}</ul>`;
 }

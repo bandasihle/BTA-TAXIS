@@ -1,0 +1,8 @@
+{
+  "appId": "za.co.bta.dankidriver",
+  "appName": "Danki Driver",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}

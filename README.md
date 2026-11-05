@@ -41,6 +41,19 @@ npm start          # http://localhost:3000
 | `npm run roads` | Fetches the road for any demo route not yet saved in `server/roads.json` (`-- --all` fetches them all again). |
 | `npm test` | State machine, end-to-end store and Danki Driver data tests. |
 
+## Android app
+
+The same pages run as an Android app through [Capacitor](https://capacitorjs.com) (`android/`, app id `za.co.bta.dankidriver`). The pages are bundled in the app; the API and live updates come from https://bta-taxis.onrender.com (set in `public/js/common.js`), and the server allows requests from the app's origin.
+
+Needs Android Studio (for the Android SDK and its bundled Java 21).
+
+```sh
+npm run app:build  # copies public/ and Leaflet into www/ and syncs them into android/
+npm run app:open   # opens the project in Android Studio; press Run for a phone or emulator
+```
+
+Run `npm run app:build` again after changing anything in `public/`. Server changes need a deploy to Render before the app sees them.
+
 Settings (environment variables): `PORT` (default 3000), `DEMO=0` to start with demo mode off, `SIM_SCALE` (default 20: simulated taxis drive 20x faster than real time), `DB_FILE` (default `data/taxi.db`).
 
 ## Screens

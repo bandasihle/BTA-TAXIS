@@ -1,7 +1,7 @@
 /* global L */
 import { $, esc, renderTopbar, connect, api, toast, confirmDialog, busy, FOOTER, registerServiceWorker } from './common.js';
 
-renderTopbar('/editor');
+renderTopbar('/editor.html');
 $('#footer').innerHTML = FOOTER;
 registerServiceWorker();
 

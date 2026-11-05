@@ -52,7 +52,7 @@ function render() {
 
 $('#b-switch').addEventListener('change', (e) => {
   rankId = Number(e.target.value);
-  history.replaceState(null, '', `/board?rank=${rankId}`);
+  history.replaceState(null, '', `/board.html?rank=${rankId}`);
   render();
 });
 

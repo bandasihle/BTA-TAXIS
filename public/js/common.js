@@ -54,10 +54,10 @@ function toggleTheme() {
 }
 
 const NAV = [
-  ['/dashboard', 'Dashboard'],
-  ['/marshal', 'Marshal'],
-  ['/board', 'Rank screen'],
-  ['/editor', 'Ranks &amp; routes'],
+  ['/dashboard.html', 'Dashboard'],
+  ['/marshal.html', 'Marshal'],
+  ['/board.html', 'Rank screen'],
+  ['/editor.html', 'Ranks &amp; routes'],
 ];
 
 const THEME_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg>`;
@@ -66,7 +66,7 @@ export function renderTopbar(active) {
   const el = document.getElementById('topbar');
   el.className = 'topbar';
   el.innerHTML = `
-    <a class="brand" href="/staff">
+    <a class="brand" href="/staff.html">
       <span class="brand-name">Benoni Taxi Association<small>Rank tracker</small></span></a>
     <nav class="nav" aria-label="Screens">${NAV.map(([href, label]) => `<a href="${href}"${href === active ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
     <div class="topbar-tools">
@@ -93,6 +93,10 @@ export function syncDemo(meta) {
 
 // ------------------------------------------------------------------ server time, API, live updates
 
+// Inside the Android app the pages load from the phone, so API calls go to the live server.
+const NATIVE = !!window.Capacitor?.isNativePlatform?.();
+export const API_BASE = NATIVE ? 'https://bta-taxis.onrender.com' : '';
+
 export const clock = {
   offset: 0,
   now() {
@@ -101,7 +105,7 @@ export const clock = {
 };
 
 export async function api(path, { method = 'GET', body } = {}) {
-  const res = await fetch(path, {
+  const res = await fetch(API_BASE + path, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
@@ -174,7 +178,7 @@ export function connect({ pos = false, onSnapshot, onPos }) {
   banner.textContent = 'Connection lost. Reconnecting… what you see may be out of date.';
   document.getElementById('topbar')?.after(banner);
 
-  const es = new EventSource(`/api/stream${pos ? '?pos=1' : ''}`);
+  const es = new EventSource(`${API_BASE}/api/stream${pos ? '?pos=1' : ''}`);
   es.addEventListener('snapshot', (e) => {
     banner.hidden = true;
     const snap = JSON.parse(e.data);
@@ -341,7 +345,7 @@ export function renderKeepingFocus(container, html) {
 }
 
 export function registerServiceWorker() {
-  if ('serviceWorker' in navigator && location.hostname !== '') {
+  if (!NATIVE && 'serviceWorker' in navigator && location.hostname !== '') {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 }

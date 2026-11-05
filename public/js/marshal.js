@@ -3,7 +3,7 @@ import {
   confirmDialog, renderKeepingFocus, FOOTER, registerServiceWorker, STATUS_LABEL,
 } from './common.js';
 
-renderTopbar('/marshal');
+renderTopbar('/marshal.html');
 $('#footer').innerHTML = FOOTER;
 registerServiceWorker();
 
@@ -30,7 +30,7 @@ function setRank(id) {
   rankId = id;
   routeTab = null;
   local.set('marshal-rank', id);
-  history.replaceState(null, '', `/marshal?rank=${id}`);
+  history.replaceState(null, '', `/marshal.html?rank=${id}`);
   render();
 }
 
@@ -41,7 +41,7 @@ function queueFor(routeId) {
 function render() {
   const rank = s.rankById.get(rankId);
   if (!rank) {
-    app.innerHTML = '<p class="muted" style="padding:24px 0">There are no ranks yet. Add one in <a href="/editor">Ranks and routes</a>.</p>';
+    app.innerHTML = '<p class="muted" style="padding:24px 0">There are no ranks yet. Add one in <a href="/editor.html">Ranks and routes</a>.</p>';
     return;
   }
   local.set('marshal-rank', rankId);
@@ -80,7 +80,7 @@ function render() {
         ${routes.map((r) => `<button class="tab" type="button" role="tab" aria-selected="${r.id === routeTab}" data-action="tab" data-route="${r.id}" data-key="tab-${r.id}">
             To ${esc(s.rankName(r.toRankId))} <span class="count" aria-label="taxis queued">${queueFor(r.id).length}</span></button>`).join('')}
       </div>`
-    : `<p class="hint">No routes leave from ${esc(rank.name)} yet. Add one in <a href="/editor">Ranks and routes</a>.</p>`;
+    : `<p class="hint">No routes leave from ${esc(rank.name)} yet. Add one in <a href="/editor.html">Ranks and routes</a>.</p>`;
 
   const queue = routeTab ? queueFor(routeTab) : [];
   const dest = routeTab ? s.dest(routeTab) : '';
