@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Staff | BTA Rank Tracker</title>
+  <meta name="theme-color" content="#262a7d">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/img/icon-192.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/app.css">
+  <script>try{var t=localStorage.getItem('bta:theme');if(t)document.documentElement.dataset.theme=JSON.parse(t)}catch(e){}</script>
+</head>
+<body>
+  <header id="topbar"></header>
+  <main class="users">
+    <div>
+      <h1>Staff</h1>
+      <p class="muted">Everyone who can sign in. Marshals record taxis at their own rank only. Admins can do everything, including this page.</p>
+    </div>
+
+    <form class="users-add" id="add" novalidate>
+      <label class="field">Name <input class="input" id="add-name" maxlength="60" autocomplete="off" required></label>
+      <label class="field">Cellphone <input class="input" id="add-phone" type="tel" inputmode="tel" maxlength="20" placeholder="082 123 4567" autocomplete="off" required></label>
+      <label class="field">Role
+        <select class="input" id="add-role">
+          <option value="marshal">Marshal</option>
+          <option value="admin">Admin</option>
+          <option value="driver">Driver</option>
+        </select>
+      </label>
+      <label class="field" id="add-rank-wrap">Rank <select class="input" id="add-rank"></select></label>
+      <button class="btn primary" type="submit">Add person</button>
+    </form>
+
+    <ul class="user-list" id="list" aria-live="polite"></ul>
+  </main>
+  <script type="module" src="/js/users.js"></script>
+</body>
+</html>

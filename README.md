@@ -37,6 +37,7 @@ npm start          # http://localhost:3000
 |---|---|
 | `npm start` | Runs the app on port 3000 (`PORT=4000 npm start` to change). |
 | `npm run dev` | Same, restarting when server files change. |
+| `npm run create-admin -- --name "Full Name" --phone 0821234567` | Creates an admin and prints a temporary PIN once. They choose their own PIN when they first sign in. |
 | `npm run seed` | Loads the association's ranks and routes into an empty database. It refuses to run on a database that has data, so it can never wipe real records. |
 | `npm run roads` | Fetches the road for any fare-list route not yet saved in `server/roads.json` (`-- --all` fetches them all again). |
 | `npm test` | State machine, end-to-end store and Danki Driver data tests. |
@@ -54,14 +55,28 @@ npm run app:open   # opens the project in Android Studio; press Run for a phone 
 
 Run `npm run app:build` again after changing anything in `public/`. Server changes need a deploy to Render before the app sees them.
 
-Settings (environment variables): `PORT` (default 3000), `DB_FILE` (default `data/taxi.db`).
+Settings (environment variables): `PORT` (default 3000), `DB_FILE` (default `data/taxi.db`), `TRUST_PROXY_HOPS` (default 0; set 1 behind Render's proxy so the sign-in limit sees the real client address), and `BOOTSTRAP_ADMIN_PHONE` + `BOOTSTRAP_ADMIN_PIN` (+ optional `BOOTSTRAP_ADMIN_NAME`) to create the first admin on a host with no shell. Only used while there are no accounts; set them as secrets.
+
+## Staff sign-in and security
+
+Passengers need no account. Staff sign in at `/login` with their cellphone number and a 6-digit PIN.
+
+- **Roles.** Admins can do everything, including managing staff at `/users`. Marshals record taxis at their own rank only. Drivers can sign in; driver mode (GPS) comes next. Every request is checked on the server; hidden links are only a convenience.
+- **Accounts.** Only an admin can add people. A new or reset PIN is shown to the admin once, and the person must choose their own at first sign-in. Weak PINs (`111111`, `123456`) are refused.
+- **PINs** are stored as scrypt hashes with a salt per person. 5 wrong PINs lock an account for 15 minutes, and each device gets 20 tries per 15 minutes. A wrong phone number and a wrong PIN get the same answer, so nobody can find out who has an account.
+- **Sessions** last 7 days. Only a hash of the session token is stored. The website keeps it in an HttpOnly, SameSite=Strict cookie and refuses changes that come from other sites; the Android app sends it as a Bearer token and gets a one-time, 30-second ticket for the live stream. Switching an account off, changing its role or resetting its PIN signs it out on every phone.
+- **Audit.** "Who did it" in the trip log comes from the session, never from what the phone sends.
+- **Public data.** Passengers see ranks, routes, plates and seats. Driver, owner and marshal names and the trip log go only to signed-in staff.
+- **Headers.** Every response has a Content-Security-Policy, `X-Frame-Options: DENY`, `nosniff` and a strict referrer policy.
 
 ## Screens
 
 | Path | For |
 |---|---|
 | `/` | Danki Driver: a map and list of province, region, rank, then destination, time and price, with the routes drawn on the map. Links like `/#/gauteng/benoni-ekurhuleni/etwatwa-las-vegas` open a rank directly. |
-| `/staff` | Pick a staff role. |
+| `/login` | Staff sign in, and choosing your own PIN. |
+| `/staff` | Staff home. |
+| `/users` | Admins: add staff, change roles and ranks, switch accounts off, make new PINs. |
 | `/marshal?rank=<id>` | Phone screen for the rank marshal: check taxis in, add passengers, depart, reorder, mark arrivals. Taps made with no signal are saved on the phone and sent later. |
 | `/dashboard` | Association office: live map, queue per rank, trip log, taxi search and history. |
 | `/board?rank=<id>` | Big-text rank screen for passengers. |
@@ -85,6 +100,8 @@ server/
   geo.js      distance and route-line helpers
   roads.js    road routes: the saved ones in roads.json, and fetching new ones from OSRM
   fetch-roads.js  `npm run roads`
+  auth.js     staff accounts, PINs, sessions, stream tickets
+  create-admin.js  `npm run create-admin`
   db.js       SQLite schema
 public/       Danki Driver and the five staff screens (vanilla JS modules, Leaflet map), PWA manifest + service worker
   js/fares.js Danki Driver provinces, regions, ranks, destinations, times and prices
@@ -98,11 +115,11 @@ This prototype uses a plain Node server, Node's built-in SQLite and vanilla JS r
 
 ## API
 
-`GET /api/snapshot` (public view), `GET /api/stream` (SSE; `?pos=1` adds positions every second; `?staff=1` sends the full staff view), `POST /api/action` with `{type, taxiId, ...}` where type is `checkIn` (`rankId`, `routeId`), `seat` (`delta` ±1), `depart`, `arrive`, `remove`, `offDuty` or `move` (`dir` up or down). Also `POST /api/taxis`, `GET /api/taxis/:id/history`, `POST/PUT/DELETE /api/ranks`, `POST/DELETE /api/routes`.
+Public: `GET /api/snapshot`, `GET /api/stream` (SSE; `?pos=1` adds positions every second). Staff (signed in): `GET /api/stream?staff=1` (cookie, or `&ticket=` from `POST /api/stream-ticket`) for the full view; `POST /api/action` with `{type, taxiId, ...}` where type is `checkIn` (`rankId`, `routeId`), `seat` (`delta` ±1), `depart`, `arrive`, `remove`, `offDuty` or `move` (`dir` up or down). Also `POST /api/taxis`, `GET /api/taxis/:id/history`. Admins: `POST/PUT/DELETE /api/ranks`, `POST/DELETE /api/routes`, `GET/POST /api/users`, `PUT /api/users/:id`, `POST /api/users/:id/pin`. Anyone: `POST /api/login {phone, pin, client?}`, `POST /api/logout`, `GET /api/me`, `POST /api/me/pin {oldPin, newPin}`.
 
 ## Known gaps
 
-- No login: anyone with the link can act as any marshal.
+- Locking an account after wrong PINs means someone who knows a marshal's number can lock them out for 15 minutes at a time. An admin can see the lock on `/users`.
 - Rank pins other than Etwatwa Las Vegas sit on the right area, not the exact rank.
 - Map tiles come from openstreetmap.org and need a connection.
 - Routes follow the fastest road for a car, from the free OSRM route planner (router.project-osrm.org), which is not always the road taxis take. The fare-list routes are saved in `server/roads.json`; a route added or moved in the editor fetches its road when it is saved and keeps a stand-in line if the planner cannot be reached.

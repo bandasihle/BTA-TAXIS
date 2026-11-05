@@ -1,7 +1,8 @@
 /* global L */
-import { $, esc, renderTopbar, connect, api, toast, confirmDialog, busy, FOOTER, registerServiceWorker } from './common.js';
+import { $, esc, renderTopbar, requireStaff, connect, api, toast, confirmDialog, busy, FOOTER, registerServiceWorker } from './common.js';
 
-renderTopbar('/editor.html');
+const me = await requireStaff(['admin']);
+renderTopbar('/editor.html', me);
 $('#footer').innerHTML = FOOTER;
 registerServiceWorker();
 

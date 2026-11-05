@@ -1,10 +1,11 @@
 /* global L */
 import {
-  $, $$, esc, local, renderTopbar, connect, api, plate, mark, seatBar, busSeats, eta, ago, clockTime, clock,
+  $, $$, esc, local, renderTopbar, requireStaff, connect, api, plate, mark, seatBar, busSeats, eta, ago, clockTime, clock,
   whereIs, registerServiceWorker, STATUS_LABEL, STATUS_ORDER,
 } from './common.js';
 
-renderTopbar('/dashboard.html');
+const me = await requireStaff(['admin']);
+renderTopbar('/dashboard.html', me);
 registerServiceWorker();
 
 // ------------------------------------------------------------------ state

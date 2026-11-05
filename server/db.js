@@ -27,11 +27,6 @@ CREATE TABLE IF NOT EXISTS drivers (
   name TEXT NOT NULL,
   phone TEXT
 );
-CREATE TABLE IF NOT EXISTS marshals (
-  id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL,
-  rank_id INTEGER REFERENCES ranks(id) ON DELETE SET NULL
-);
 CREATE TABLE IF NOT EXISTS taxis (
   id INTEGER PRIMARY KEY,
   plate TEXT NOT NULL UNIQUE,
@@ -72,6 +67,28 @@ CREATE TABLE IF NOT EXISTS events (
   at INTEGER NOT NULL,
   by TEXT,
   detail TEXT
+);
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL UNIQUE,
+  role TEXT NOT NULL CHECK (role IN ('admin', 'marshal', 'driver')),
+  rank_id INTEGER REFERENCES ranks(id) ON DELETE SET NULL,
+  pin_hash TEXT NOT NULL,
+  must_change_pin INTEGER NOT NULL DEFAULT 1,
+  failed_logins INTEGER NOT NULL DEFAULT 0,
+  locked_until INTEGER,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL,
+  last_login_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  id INTEGER PRIMARY KEY,
+  token_hash TEXT NOT NULL UNIQUE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  client TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS events_at ON events(at);
 CREATE INDEX IF NOT EXISTS trips_open ON trips(arrived_at);

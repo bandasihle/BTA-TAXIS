@@ -1,6 +1,7 @@
-import { $, esc, local, renderTopbar, connect, FOOTER, registerServiceWorker, mark } from './common.js';
+import { $, esc, local, renderTopbar, requireStaff, connect, FOOTER, registerServiceWorker, mark } from './common.js';
 
-renderTopbar('/staff.html');
+const me = await requireStaff(['admin', 'marshal']);
+renderTopbar('/staff.html', me);
 $('#footer').innerHTML = FOOTER;
 registerServiceWorker();
 

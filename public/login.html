@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Staff sign in | BTA Rank Tracker</title>
+  <meta name="theme-color" content="#262a7d">
+  <meta name="referrer" content="same-origin">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/img/icon-192.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/app.css">
+  <script>try{var t=localStorage.getItem('bta:theme');if(t)document.documentElement.dataset.theme=JSON.parse(t)}catch(e){}</script>
+</head>
+<body>
+  <main class="signin">
+    <a class="signin-logo" href="/"><img src="/img/bta-logo.png" width="72" height="72" alt="Benoni Taxi Association"></a>
+
+    <form class="signin-card" id="signin" novalidate>
+      <h1>Staff sign in</h1>
+      <p class="muted">For marshals and the association office. Passengers don't need an account.</p>
+      <label class="field">Cellphone number
+        <input class="input" id="phone" type="tel" inputmode="tel" autocomplete="username" placeholder="082 123 4567" maxlength="20" required>
+      </label>
+      <label class="field">PIN
+        <input class="input pin" id="pin" type="password" inputmode="numeric" autocomplete="current-password" pattern="\d{6}" maxlength="6" placeholder="6 digits" required>
+      </label>
+      <p class="signin-error" id="signin-error" role="alert" hidden></p>
+      <button class="btn primary" type="submit">Sign in</button>
+      <p class="small muted">Forgot your PIN? Ask an admin at the association office to reset it.</p>
+    </form>
+
+    <form class="signin-card" id="newpin" novalidate hidden>
+      <h1>Choose your PIN</h1>
+      <p class="muted">The PIN you were given is temporary. Choose your own 6-digit PIN, one only you know. Don't use your birthday or digits in a row.</p>
+      <label class="field">New PIN
+        <input class="input pin" id="new-pin" type="password" inputmode="numeric" autocomplete="new-password" pattern="\d{6}" maxlength="6" placeholder="6 digits" required>
+      </label>
+      <label class="field">New PIN again
+        <input class="input pin" id="new-pin-2" type="password" inputmode="numeric" autocomplete="new-password" pattern="\d{6}" maxlength="6" placeholder="6 digits" required>
+      </label>
+      <p class="signin-error" id="newpin-error" role="alert" hidden></p>
+      <button class="btn primary" type="submit">Save PIN</button>
+    </form>
+
+    <div class="signin-card" id="driver" hidden>
+      <h1>Signed in</h1>
+      <p class="muted">Driver mode is coming next: it will share your taxi's position while you drive. There is nothing to do here yet.</p>
+      <button class="btn" type="button" id="driver-out">Sign out</button>
+    </div>
+  </main>
+  <script type="module" src="/js/login.js"></script>
+</body>
+</html>

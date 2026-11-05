@@ -10,3 +10,11 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22.14.0
+      # Render's proxy adds one X-Forwarded-For entry; the sign-in limit trusts only that one.
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      # The first admin: set both as secrets in the Render dashboard, never in this file.
+      - key: BOOTSTRAP_ADMIN_PHONE
+        sync: false
+      - key: BOOTSTRAP_ADMIN_PIN
+        sync: false

@@ -1,15 +1,18 @@
 import {
-  $, esc, local, renderTopbar, connect, api, act, busy, toast, plate, busSeats, eta, ago, clock,
+  $, esc, local, renderTopbar, requireStaff, connect, api, act, busy, toast, plate, busSeats, eta, ago, clock,
   confirmDialog, renderKeepingFocus, FOOTER, registerServiceWorker, STATUS_LABEL,
 } from './common.js';
 
-renderTopbar('/marshal.html');
+const me = await requireStaff(['admin', 'marshal']);
+renderTopbar('/marshal.html', me);
 $('#footer').innerHTML = FOOTER;
 registerServiceWorker();
 
 const app = $('#app');
 const params = new URLSearchParams(location.search);
-let rankId = Number(params.get('rank')) || local.get('marshal-rank');
+// A marshal works their own rank; only admins switch between ranks.
+const ownRankOnly = me.role === 'marshal';
+let rankId = ownRankOnly ? me.rankId : Number(params.get('rank')) || local.get('marshal-rank');
 let routeTab = null;
 let s = null;
 const lastSeats = new Map();
@@ -21,7 +24,7 @@ connect({
   staff: true,
   onSnapshot(snap) {
     s = snap;
-    if (!s.rankById.has(rankId)) rankId = s.ranks[0]?.id;
+    if (!s.rankById.has(rankId) && !ownRankOnly) rankId = s.ranks[0]?.id;
     render();
   },
 });
@@ -42,7 +45,9 @@ function queueFor(routeId) {
 function render() {
   const rank = s.rankById.get(rankId);
   if (!rank) {
-    app.innerHTML = '<p class="muted" style="padding:24px 0">There are no ranks yet. Add one in <a href="/editor.html">Ranks and routes</a>.</p>';
+    app.innerHTML = ownRankOnly
+      ? '<p class="muted" style="padding:24px 0">Your account is not linked to a rank. Ask an admin to set your rank.</p>'
+      : '<p class="muted" style="padding:24px 0">There are no ranks yet. Add one in <a href="/editor.html">Ranks and routes</a>.</p>';
     return;
   }
   local.set('marshal-rank', rankId);
@@ -67,10 +72,10 @@ function render() {
       </div>
       <div class="m-head-row">
         <span class="muted small">${marshal ? `Marshal: ${esc(marshal.name)}` : 'No marshal assigned'}</span>
-        <label class="visually-hidden" for="rank-switch">Switch rank</label>
+        ${ownRankOnly ? '' : `<label class="visually-hidden" for="rank-switch">Switch rank</label>
         <select class="input m-rank-select" id="rank-switch" data-key="rank-switch">
           ${s.ranks.map((r) => `<option value="${r.id}"${r.id === rankId ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}
-        </select>
+        </select>`}
       </div>
     </div>`;
 
@@ -79,7 +84,7 @@ function render() {
         ${routes.map((r) => `<button class="tab" type="button" role="tab" aria-selected="${r.id === routeTab}" data-action="tab" data-route="${r.id}" data-key="tab-${r.id}">
             To ${esc(s.rankName(r.toRankId))} <span class="count" aria-label="taxis queued">${queueFor(r.id).length}</span></button>`).join('')}
       </div>`
-    : `<p class="hint">No routes leave from ${esc(rank.name)} yet. Add one in <a href="/editor.html">Ranks and routes</a>.</p>`;
+    : `<p class="hint">No routes leave from ${esc(rank.name)} yet. ${ownRankOnly ? 'Ask an admin to add one.' : 'Add one in <a href="/editor.html">Ranks and routes</a>.'}</p>`;
 
   const queue = routeTab ? queueFor(routeTab) : [];
   const dest = routeTab ? s.dest(routeTab) : '';

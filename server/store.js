@@ -188,6 +188,20 @@ export function createStore(db, opts = {}) {
     return result;
   }
 
+  /**
+   * The rank an action happens at, for permission checks: where the taxi is checking in,
+   * where it is queued or waiting, or (for an arrival) where its trip ends. Null when unknown.
+   */
+  function rankForAction(input = {}) {
+    if (input.type === 'checkIn') return Number(input.rankId) || null;
+    const taxi = one('SELECT * FROM taxis WHERE id = ?', Number(input.taxiId));
+    if (!taxi) return null;
+    if (input.type === 'arrive') {
+      return one('SELECT r.to_rank_id AS id FROM trips t JOIN routes r ON r.id = t.route_id WHERE t.id = ?', taxi.trip_id)?.id ?? null;
+    }
+    return one('SELECT rank_id FROM queue_entries WHERE taxi_id = ?', taxi.id)?.rank_id ?? taxi.rank_id ?? null;
+  }
+
   // ---------------------------------------------------------------- taxis
 
   function createTaxi(input = {}) {
@@ -381,7 +395,7 @@ export function createStore(db, opts = {}) {
                   OR id IN (SELECT id FROM trips WHERE arrived_at IS NOT NULL ORDER BY arrived_at DESC LIMIT 40)
                   ORDER BY departed_at DESC`).map(mapTrip),
       events: all('SELECT * FROM events ORDER BY at DESC, id DESC LIMIT 100').map(mapEvent),
-      marshals: all('SELECT * FROM marshals ORDER BY name').map((m) => ({ id: m.id, name: m.name, rankId: m.rank_id })),
+      marshals: all(`SELECT id, name, rank_id FROM users WHERE role = 'marshal' AND active = 1 ORDER BY name`).map((m) => ({ id: m.id, name: m.name, rankId: m.rank_id })),
       meta: { serverTime: now() },
     };
   }
@@ -409,7 +423,7 @@ export function createStore(db, opts = {}) {
   }
 
   return {
-    db, tx, act, createTaxi, taxiHistory, createRank, updateRank, deleteRank, createRoute, deleteRoute,
+    db, tx, act, rankForAction, createTaxi, taxiHistory, createRank, updateRank, deleteRank, createRoute, deleteRoute,
     snapshot, publicSnapshot, isEmpty, now,
     on: (...a) => emitter.on(...a),
     off: (...a) => emitter.off(...a),

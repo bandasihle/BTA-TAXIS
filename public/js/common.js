@@ -53,27 +53,33 @@ function toggleTheme() {
   local.set('theme', next);
 }
 
+// Each screen and who may open it. The server checks every request again; hiding a link is
+// only a convenience.
 const NAV = [
-  ['/dashboard.html', 'Dashboard'],
-  ['/marshal.html', 'Marshal'],
-  ['/board.html', 'Rank screen'],
-  ['/editor.html', 'Ranks &amp; routes'],
+  ['/dashboard.html', 'Dashboard', ['admin']],
+  ['/marshal.html', 'Marshal', ['admin', 'marshal']],
+  ['/board.html', 'Rank screen', ['admin', 'marshal']],
+  ['/editor.html', 'Ranks &amp; routes', ['admin']],
+  ['/users.html', 'Staff', ['admin']],
 ];
 
 const THEME_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg>`;
 
-export function renderTopbar(active) {
+export function renderTopbar(active, user) {
   const el = document.getElementById('topbar');
   el.className = 'topbar';
+  const links = NAV.filter(([, , roles]) => roles.includes(user?.role));
   el.innerHTML = `
-    <a class="brand" href="/staff.html">
+    <a class="brand" href="${homeFor(user)}">
       <span class="brand-name">Benoni Taxi Association<small>Rank tracker</small></span></a>
-    <nav class="nav" aria-label="Screens">${NAV.map(([href, label]) => `<a href="${href}"${href === active ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
+    <nav class="nav" aria-label="Screens">${links.map(([href, label]) => `<a href="${href}"${href === active ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
     <div class="topbar-tools">
+      ${user ? `<span class="who small">${esc(user.name)}</span><button class="btn sm quiet" id="sign-out" type="button">Sign out</button>` : ''}
       <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch between light and dark">${THEME_ICON}</button>
       <a class="brand-logo" href="/" title="Danki Driver, the passenger app"><img src="/img/bta-logo.png" width="40" height="40" alt="Benoni Taxi Association"></a>
     </div>`;
   $('#theme-toggle').addEventListener('click', toggleTheme);
+  $('#sign-out')?.addEventListener('click', signOut);
 }
 
 // ------------------------------------------------------------------ server time, API, live updates
@@ -81,6 +87,7 @@ export function renderTopbar(active) {
 // Inside the Android app the pages load from the phone, so API calls go to the live server.
 const NATIVE = !!window.Capacitor?.isNativePlatform?.();
 export const API_BASE = NATIVE ? 'https://bta-taxis.onrender.com' : '';
+export const IS_APP = NATIVE;
 
 export const clock = {
   offset: 0,
@@ -90,11 +97,11 @@ export const clock = {
 };
 
 export async function api(path, { method = 'GET', body } = {}) {
-  const res = await fetch(API_BASE + path, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const headers = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  const token = session.token();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(API_BASE + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
   let data = null;
   try {
     data = await res.json();
@@ -104,9 +111,79 @@ export async function api(path, { method = 'GET', body } = {}) {
   if (!res.ok) {
     const err = new Error(data?.error || `The server answered ${res.status}.`);
     err.status = res.status;
+    // a staff screen whose session ended (signed out elsewhere, PIN reset) goes back to sign-in
+    if (res.status === 401 && document.body.dataset.staff != null) goToSignIn();
     throw err;
   }
   return data;
+}
+
+// ------------------------------------------------------------------ signing in
+
+/**
+ * The app keeps its session token on the phone and sends it as a Bearer header. The website
+ * never sees its token: it lives in an HttpOnly cookie the browser sends by itself.
+ */
+export const session = {
+  token: () => (NATIVE ? local.get('session') : null),
+  set(token) {
+    if (NATIVE) local.set('session', token);
+  },
+  clear() {
+    if (NATIVE) local.set('session', null);
+  },
+};
+
+/** Where someone lands after signing in. */
+export function homeFor(user) {
+  if (user?.role === 'admin') return '/dashboard.html';
+  if (user?.role === 'marshal') return `/marshal.html?rank=${user.rankId}`;
+  return '/login.html';
+}
+
+export function goToSignIn() {
+  const next = location.pathname + location.search;
+  location.replace(`/login.html?next=${encodeURIComponent(next)}`);
+}
+
+const never = () => new Promise(() => {});
+
+/**
+ * Call first on every staff screen. Resolves with the signed-in user when their role may use
+ * this screen; otherwise sends them to sign in (or to their own screen) and never resolves.
+ */
+export async function requireStaff(roles) {
+  document.body.dataset.staff = '';
+  let me;
+  try {
+    me = await api('/api/me');
+  } catch (err) {
+    if (err.status !== 401) {
+      document.body.innerHTML = '<p style="padding:24px">The tracker cannot be reached. Check your connection and reload.</p>';
+    }
+    return never();
+  }
+  if (me.mustChangePin) {
+    goToSignIn();
+    return never();
+  }
+  if (!roles.includes(me.role)) {
+    location.replace(homeFor(me));
+    return never();
+  }
+  return me;
+}
+
+export async function signOut() {
+  await flushOutbox(); // taps saved offline belong to this person; send them before signing out
+  try {
+    await api('/api/logout', { method: 'POST', body: {} });
+  } catch {
+    /* signed out on this phone either way */
+  }
+  session.clear();
+  local.set('outbox', []);
+  location.replace('/login.html');
 }
 
 /**
@@ -166,24 +243,39 @@ export function connect({ pos = false, staff = false, onSnapshot, onPos }) {
   banner.textContent = 'Connection lost. Reconnecting… what you see may be out of date.';
   document.getElementById('topbar')?.after(banner);
 
-  const params = new URLSearchParams();
-  if (pos) params.set('pos', '1');
-  if (staff) params.set('staff', '1');
-  const query = params.toString();
-  const es = new EventSource(`${API_BASE}/api/stream${query ? `?${query}` : ''}`);
-  es.addEventListener('snapshot', (e) => {
-    banner.hidden = true;
-    const snap = JSON.parse(e.data);
-    clock.offset = snap.meta.serverTime - Date.now();
-    onSnapshot(index(snap));
-    flushOutbox();
-  });
-  if (onPos) es.addEventListener('pos', (e) => onPos(JSON.parse(e.data)));
-  es.addEventListener('error', () => {
-    banner.hidden = false;
-  });
+  // The browser retries a dropped stream by itself. When the server refuses it instead (the
+  // session ended, or the app's one-time ticket was used), open a fresh one. A staff screen
+  // checks the session first, which sends the person to sign in when it has ended.
+  let es;
+  async function open() {
+    const params = new URLSearchParams();
+    if (pos) params.set('pos', '1');
+    if (staff) {
+      params.set('staff', '1');
+      try {
+        await api('/api/me');
+        if (NATIVE) params.set('ticket', (await api('/api/stream-ticket', { method: 'POST', body: {} })).ticket);
+      } catch {
+        banner.hidden = false;
+        return void setTimeout(open, 5000);
+      }
+    }
+    es = new EventSource(`${API_BASE}/api/stream?${params}`);
+    es.addEventListener('snapshot', (e) => {
+      banner.hidden = true;
+      const snap = JSON.parse(e.data);
+      clock.offset = snap.meta.serverTime - Date.now();
+      onSnapshot(index(snap));
+      flushOutbox();
+    });
+    if (onPos) es.addEventListener('pos', (e) => onPos(JSON.parse(e.data)));
+    es.addEventListener('error', () => {
+      banner.hidden = false;
+      if (es.readyState === EventSource.CLOSED) setTimeout(open, 3000);
+    });
+  }
+  open();
   addEventListener('online', flushOutbox);
-  return es;
 }
 
 /** Adds lookup maps to a snapshot. */
