@@ -1,0 +1,59 @@
+/* The welcome screen: a loading screen while the server answers, then two slips, one for
+   passengers (no account) and one for staff sign in. Builds on slip-base.css. */
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body.gate { margin: 0; min-height: 100dvh; background: var(--paper); color: var(--ink); font: 400 16px/1.45 var(--ui); }
+h1, p { margin: 0; }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+/* ---- loading */
+.gate-load {
+  position: fixed; inset: 0; z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 24px; background: var(--paper); text-align: center;
+  transition: opacity 0.35s ease-out, visibility 0s linear 0.35s;
+}
+body:not(.is-loading) .gate-load { opacity: 0; visibility: hidden; }
+.gate-load img { border-radius: 50%; background: var(--white); box-shadow: 0 0 0 1px rgba(17, 18, 20, 0.12); margin-bottom: 8px; }
+.gate-name { font-size: 30px; font-weight: 700; letter-spacing: -0.015em; }
+.gate-name b { font-weight: 400; color: var(--ink-2); }
+.gate-tag { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.gate-bar { width: 180px; height: 3px; margin-top: 18px; background: var(--paper-2); border-radius: 2px; overflow: hidden; }
+.gate-bar span { display: block; width: 40%; height: 100%; background: var(--blue); border-radius: 2px; animation: gate-run 1.2s var(--ease) infinite; }
+@keyframes gate-run { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+.gate-msg { min-height: 1.45em; font-size: 14px; color: var(--ink-2); }
+
+/* ---- the choices */
+.gate-main { max-width: 480px; margin: 0 auto; padding: 12px 16px calc(40px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 18px; }
+.gate-main h1 { font-size: 34px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; }
+.gate-lede { color: var(--ink-2); margin-top: -10px; }
+.gate-offline { padding: 12px 14px; border-radius: 12px; background: #fbeceb; color: var(--stop); font-weight: 600; }
+.gate-offline[hidden], .gate-card[hidden] { display: none; }
+
+.gate-card { padding: 22px 18px 18px; display: flex; flex-direction: column; gap: 14px; }
+.gate-card > p { color: var(--ink-2); font-size: 15px; }
+.gate-field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.gate-input {
+  width: 100%; min-height: 52px; padding: 0 14px; border: 1.5px solid var(--rule); border-radius: 12px;
+  background: var(--paper); color: var(--ink); font-size: 18px; font-weight: 400;
+}
+.gate-input:focus { border-color: var(--blue); outline: none; box-shadow: 0 0 0 3px var(--blue-wash); }
+.gate-input.pin { font-family: var(--mono); font-size: 22px; letter-spacing: 0.4em; }
+.gate-error { color: var(--stop); font-weight: 600; font-size: 15px; }
+.gate-note { font-size: 13px; color: var(--ink-2); }
+
+.gate-go {
+  display: flex; align-items: center; justify-content: center; width: 100%; min-height: 56px;
+  border: 0; border-radius: 14px; background: var(--ink); color: var(--white);
+  font-size: 18px; font-weight: 700; cursor: pointer; transition: transform 0.12s var(--ease);
+}
+.gate-go:active { transform: scale(0.985); }
+.gate-go:disabled { opacity: 0.5; cursor: progress; }
+#signin .gate-go, #newpin .gate-go { background: var(--blue); }
+
+@media (prefers-reduced-motion: reduce) {
+  .gate-load { transition: none; }
+  .gate-bar span { animation: none; width: 100%; }
+  .gate-go { transition: none; }
+}

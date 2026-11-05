@@ -93,7 +93,7 @@ Passengers need no account. Staff sign in at `/login` with their cellphone numbe
 | Path | For |
 |---|---|
 | `/` | Danki Driver: a map and list of province, region, rank, then destination, time and price, with the routes drawn on the map. Links like `/#/gauteng/benoni-ekurhuleni/etwatwa-las-vegas` open a rank directly. |
-| `/login` | Staff sign in, and choosing your own PIN. |
+| `/login` | The welcome screen the app opens on: a loading screen while the server wakes, then "Continue as a passenger" (no account) or staff sign in, and choosing your own PIN. Every screen has a Menu in the header listing what the signed-in role can open. |
 | `/staff` | Staff home. |
 | `/driver` | Drivers: read and accept the location notice, then start and stop sharing their taxi's position. |
 | `/users` | Admins: add staff, change roles and ranks, link drivers to their taxi, switch accounts off, make new PINs. |

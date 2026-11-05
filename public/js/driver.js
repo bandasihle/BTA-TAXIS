@@ -5,8 +5,9 @@
 import { $, esc, api, toast, busy, confirmDialog, signOut, requireStaff, connect, clockTime } from './common.js';
 import { CONSENT_VERSION, CONSENT_NOTICE } from './consent.js';
 import { watchLocation, openLocationSettings, BACKGROUND } from './location.js';
+import { mountMenu } from './menu.js';
 
-await requireStaff(['driver']);
+const me = await requireStaff(['driver']);
 
 const app = $('#app');
 const head = $('#sh');
@@ -16,9 +17,12 @@ const STATUS_TEXT = { OFF_DUTY: 'Off duty', ARRIVED: 'At a rank', QUEUED: 'In a 
 const STATUS_TONE = { ARRIVED: 'soon', QUEUED: 'soon', LOADING: 'soon', EN_ROUTE: 'go' };
 
 // Signing out stops sharing first, so the phone never keeps sending for a signed-out driver.
-$('#sign-out').addEventListener('click', async (e) => {
-  if (stopWatch != null) stop();
-  await busy(e.currentTarget, signOut);
+mountMenu($('#menu-btn'), {
+  user: me,
+  async onSignOut() {
+    if (stopWatch != null) stop();
+    await signOut();
+  },
 });
 addEventListener('scroll', () => {
   head.classList.toggle('is-scrolled', scrollY > 4);

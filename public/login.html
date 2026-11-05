@@ -1,48 +1,70 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Staff sign in | BTA Rank Tracker</title>
-  <meta name="theme-color" content="#262a7d">
+  <title>Sign in | Danki Driver</title>
+  <meta name="theme-color" content="#fbfbf8">
   <meta name="referrer" content="same-origin">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/img/icon-192.png" type="image/png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/css/app.css">
-  <script>try{var t=localStorage.getItem('bta:theme');if(t)document.documentElement.dataset.theme=JSON.parse(t)}catch(e){}</script>
+  <link rel="preload" href="/fonts/spline-sans-mono-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/css/slip-base.css">
+  <link rel="stylesheet" href="/css/login.css">
 </head>
-<body>
-  <main class="signin">
-    <a class="signin-logo" href="/"><img src="/img/bta-logo.png" width="72" height="72" alt="Benoni Taxi Association"></a>
+<body class="gate is-loading">
+  <div class="gate-load" id="loading" role="status">
+    <img src="/img/bta-logo.png" width="104" height="104" alt="">
+    <p class="gate-name">Danki <b>Driver</b></p>
+    <p class="gate-tag">Benoni Taxi Association · The wheels of the nation</p>
+    <div class="gate-bar" aria-hidden="true"><span></span></div>
+    <p class="gate-msg" id="load-msg">Getting ready…</p>
+  </div>
 
-    <form class="signin-card" id="signin" novalidate>
-      <h1>Staff sign in</h1>
-      <p class="muted">For marshals, drivers and the association office. Passengers don't need an account.</p>
-      <label class="field">Cellphone number
-        <input class="input" id="phone" type="tel" inputmode="tel" autocomplete="username" placeholder="082 123 4567" maxlength="20" required>
+  <header class="sh" id="sh">
+    <div class="sh-in">
+      <span class="sh-word">Danki <b>Driver</b></span>
+      <span class="sh-title" id="sh-title" aria-hidden="true">Sign in</span>
+      <span class="sh-end"><img src="/img/bta-logo.png" width="36" height="36" alt="Benoni Taxi Association, SANTACO"></span>
+    </div>
+  </header>
+
+  <main class="gate-main" id="gate">
+    <h1 id="gate-title">Welcome</h1>
+    <p class="gate-lede">Choose how you're using Danki Driver today.</p>
+    <p class="gate-offline" id="offline" role="alert" hidden>No connection to the association's server right now. Check your data or Wi-Fi and try again.</p>
+
+    <section class="gate-card slip-paper" aria-labelledby="p-head">
+      <span class="slip-label" id="p-head">Catching a taxi</span>
+      <p>Find your rank, see where the taxis go, what they cost and which are on the way. No account needed.</p>
+      <button class="gate-go" type="button" id="passenger">Continue as a passenger</button>
+    </section>
+
+    <form class="gate-card slip-paper" id="signin" novalidate aria-labelledby="s-head">
+      <span class="slip-label" id="s-head">Staff sign in</span>
+      <p>Drivers, rank marshals and the association office sign in with their cellphone number and PIN.</p>
+      <label class="gate-field">Cellphone number
+        <input class="gate-input" id="phone" type="tel" inputmode="tel" autocomplete="username" placeholder="082 123 4567" maxlength="20" required>
       </label>
-      <label class="field">PIN
-        <input class="input pin" id="pin" type="password" inputmode="numeric" autocomplete="current-password" pattern="\d{6}" maxlength="6" placeholder="6 digits" required>
+      <label class="gate-field">PIN
+        <input class="gate-input pin" id="pin" type="password" inputmode="numeric" autocomplete="current-password" pattern="\d{6}" maxlength="6" placeholder="6 digits" required>
       </label>
-      <p class="signin-error" id="signin-error" role="alert" hidden></p>
-      <button class="btn primary" type="submit">Sign in</button>
-      <p class="small muted">Forgot your PIN? Ask an admin at the association office to reset it.</p>
+      <p class="gate-error" id="signin-error" role="alert" hidden></p>
+      <button class="gate-go" type="submit">Sign in</button>
+      <p class="gate-note">Forgot your PIN? Ask an admin at the association office to reset it.</p>
     </form>
 
-    <form class="signin-card" id="newpin" novalidate hidden>
-      <h1>Choose your PIN</h1>
-      <p class="muted">The PIN you were given is temporary. Choose your own 6-digit PIN, one only you know. Don't use your birthday or digits in a row.</p>
-      <label class="field">New PIN
-        <input class="input pin" id="new-pin" type="password" inputmode="numeric" autocomplete="new-password" pattern="\d{6}" maxlength="6" placeholder="6 digits" required>
+    <form class="gate-card slip-paper" id="newpin" novalidate hidden aria-labelledby="n-head">
+      <span class="slip-label" id="n-head">Choose your PIN</span>
+      <p>The PIN you were given is temporary. Choose your own 6-digit PIN, one only you know. Don't use your birthday or digits in a row.</p>
+      <label class="gate-field">New PIN
+        <input class="gate-input pin" id="new-pin" type="password" inputmode="numeric" autocomplete="new-password" pattern="\d{6}" maxlength="6" placeholder="6 digits" required>
       </label>
-      <label class="field">New PIN again
-        <input class="input pin" id="new-pin-2" type="password" inputmode="numeric" autocomplete="new-password" pattern="\d{6}" maxlength="6" placeholder="6 digits" required>
+      <label class="gate-field">New PIN again
+        <input class="gate-input pin" id="new-pin-2" type="password" inputmode="numeric" autocomplete="new-password" pattern="\d{6}" maxlength="6" placeholder="6 digits" required>
       </label>
-      <p class="signin-error" id="newpin-error" role="alert" hidden></p>
-      <button class="btn primary" type="submit">Save PIN</button>
+      <p class="gate-error" id="newpin-error" role="alert" hidden></p>
+      <button class="gate-go" type="submit">Save PIN</button>
     </form>
   </main>
   <script type="module" src="/js/login.js"></script>

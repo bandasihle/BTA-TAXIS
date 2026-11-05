@@ -1,0 +1,48 @@
+/* The app menu sheet (js/menu.js). Self-contained, so it looks the same on the slip screens
+   and on the staff screens that use app.css. */
+
+.mn {
+  --mn-paper: #fbfbf8; --mn-white: #fff; --mn-ink: #111214; --mn-ink-2: #464952; --mn-rule: #d9dadf;
+  --mn-blue: #262a7d; --mn-wash: #e8e9f6; --mn-stop: #a8231c;
+  position: fixed; inset: 0 0 0 auto; margin: 0; width: min(340px, 88vw); max-width: none; height: 100dvh; max-height: none;
+  padding: calc(8px + env(safe-area-inset-top)) 0 calc(16px + env(safe-area-inset-bottom));
+  border: 0; border-radius: 0; background: var(--mn-paper); color: var(--mn-ink);
+  font: 400 16px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  display: none; flex-direction: column; box-shadow: -8px 0 32px rgba(17, 18, 20, 0.18);
+}
+.mn[open] { display: flex; animation: mn-in 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+.mn::backdrop { background: rgba(17, 18, 20, 0.4); }
+@keyframes mn-in { from { transform: translateX(100%); } }
+
+.mn-top { display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 8px 0 20px; }
+.mn-word { font-weight: 700; font-size: 19px; letter-spacing: -0.01em; }
+.mn-word b { font-weight: 400; color: var(--mn-ink-2); }
+.mn-close { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: none; color: var(--mn-ink); cursor: pointer; }
+.mn-close svg { width: 20px; height: 20px; }
+.mn :focus-visible { outline: 3px solid var(--mn-blue); outline-offset: 2px; }
+
+.mn-who { margin: 4px 20px 12px; padding: 12px 14px; border-radius: 12px; background: var(--mn-white); box-shadow: 0 0 0 1px var(--mn-rule); display: flex; flex-direction: column; }
+.mn-who span { font-size: 14px; color: var(--mn-ink-2); }
+
+.mn-list { list-style: none; margin: 0; padding: 0 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.mn-list a { display: flex; flex-direction: column; justify-content: center; min-height: 52px; padding: 8px 12px; border-radius: 12px; color: var(--mn-ink); text-decoration: none; font-weight: 600; }
+.mn-list a small { font-weight: 400; font-size: 13px; color: var(--mn-ink-2); }
+.mn-list a:hover { background: rgba(17, 18, 20, 0.05); }
+.mn-list a[aria-current='page'] { background: var(--mn-wash); color: var(--mn-blue); }
+
+.mn-end { margin-top: auto; padding: 16px 20px 8px; border-top: 1px solid var(--mn-rule); display: flex; flex-direction: column; gap: 6px; }
+.mn-end p { margin: 0; font-size: 13px; color: var(--mn-ink-2); }
+.mn-in, .mn-out {
+  display: flex; align-items: center; justify-content: center; min-height: 50px; border-radius: 14px;
+  font-weight: 700; font-size: 16px; text-decoration: none; cursor: pointer;
+}
+.mn-in { background: var(--mn-blue); color: var(--mn-white); }
+.mn-out { border: 0; background: var(--mn-white); color: var(--mn-stop); box-shadow: inset 0 0 0 1.5px var(--mn-stop); font-family: inherit; }
+.mn-out:disabled { opacity: 0.5; }
+.mn-foot { margin: 8px 20px 0; font-size: 12px; color: var(--mn-ink-2); }
+
+/* the header button on the slip screens */
+.sh-menu { display: inline-flex; align-items: center; gap: 6px; }
+.sh-menu svg { width: 22px; height: 22px; }
+
+@media (prefers-reduced-motion: reduce) { .mn[open] { animation: none; } }

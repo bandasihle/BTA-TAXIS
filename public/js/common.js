@@ -55,7 +55,7 @@ function toggleTheme() {
 
 // Each screen and who may open it. The server checks every request again; hiding a link is
 // only a convenience.
-const NAV = [
+export const NAV = [
   ['/dashboard.html', 'Dashboard', ['admin']],
   ['/marshal.html', 'Marshal', ['admin', 'marshal']],
   ['/board.html', 'Rank screen', ['admin', 'marshal']],
@@ -76,11 +76,27 @@ export function renderTopbar(active, user) {
     <nav class="nav" aria-label="Screens">${links.map(([href, label]) => `<a href="${href}"${href === active ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
     <div class="topbar-tools">
       ${user ? `<span class="who small">${esc(user.name)}</span><button class="btn sm quiet" id="sign-out" type="button">Sign out</button>` : ''}
+      <button class="btn sm quiet" id="menu-btn" type="button" aria-haspopup="dialog">Menu</button>
       <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch between light and dark">${THEME_ICON}</button>
       <a class="brand-logo" href="/" title="Danki Driver, the passenger app"><img src="/img/bta-logo.png" width="40" height="40" alt="Benoni Taxi Association"></a>
     </div>`;
   $('#theme-toggle').addEventListener('click', toggleTheme);
   $('#sign-out')?.addEventListener('click', signOut);
+  import('./menu.js').then(({ mountMenu }) => mountMenu($('#menu-btn'), { user, current: active }));
+}
+
+// ------------------------------------------------------------------ the welcome screen
+
+/**
+ * Danki Driver opens on the welcome screen once per visit (see js/gate.js). Choosing to
+ * continue as a passenger, or signing in, marks this visit so the gate lets you through.
+ */
+export function enter(kind) {
+  try {
+    sessionStorage.setItem('dk:in', kind);
+  } catch {
+    /* storage blocked: the gate cannot read it either, so it lets everyone through */
+  }
 }
 
 // ------------------------------------------------------------------ server time, API, live updates
@@ -173,6 +189,7 @@ export async function requireStaff(roles) {
     location.replace(homeFor(me));
     return never();
   }
+  enter('staff');
   return me;
 }
 

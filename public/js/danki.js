@@ -11,7 +11,8 @@
 // on the phone, so fares still show with no signal.
 
 import { lookup, buildDirectory, priceLabel, timeLabel, runningNow, saMinutes } from './fares.js';
-import { esc, local, registerServiceWorker, connect } from './common.js';
+import { esc, local, registerServiceWorker, connect, api } from './common.js';
+import { mountMenu } from './menu.js';
 
 let cached = local.get('directory');
 let tree;
@@ -507,3 +508,8 @@ addEventListener('hashchange', render);
 addEventListener('resize', () => map.invalidateSize());
 render();
 registerServiceWorker();
+
+// The menu shows the screens of whoever is signed in on this phone, or staff sign in.
+Promise.race([api('/api/me'), new Promise((_, no) => setTimeout(no, 3000))])
+  .then((me) => mountMenu(document.getElementById('menu-btn'), { user: me.mustChangePin ? null : me }))
+  .catch(() => mountMenu(document.getElementById('menu-btn')));
