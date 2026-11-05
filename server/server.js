@@ -39,6 +39,11 @@ const COOKIE = 'bta_session';
 // ------------------------------------------------------------------ live updates (SSE)
 
 const clients = new Set();
+// One script must not be able to hold every connection the server has. Phones on the same
+// mobile network often share one public IP, so the per-IP cap is generous.
+const MAX_STREAMS = 2000;
+const MAX_STREAMS_PER_IP = 40;
+const streamsByIp = new Map();
 
 function send(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
@@ -79,6 +84,9 @@ function closeDeadStreams() {
 setInterval(closeDeadStreams, 30_000).unref();
 
 function stream(req, res, url) {
+  const ip = clientIp(req);
+  const mine = streamsByIp.get(ip) ?? 0;
+  if (clients.size >= MAX_STREAMS || mine >= MAX_STREAMS_PER_IP) throw new HttpError(429, 'Too many live connections. Try again in a minute.');
   let user = null;
   if (url.searchParams.get('staff') === '1') {
     const ticket = url.searchParams.get('ticket');
@@ -95,10 +103,35 @@ function stream(req, res, url) {
   res.write('retry: 3000\n\n');
   const client = { res, pos: url.searchParams.get('pos') === '1', user };
   clients.add(client);
+  streamsByIp.set(ip, mine + 1);
   send(res, 'snapshot', user ? store.snapshot() : store.publicSnapshot());
   if (client.pos) send(res, 'pos', positions.getPositions());
-  req.on('close', () => clients.delete(client));
+  req.on('close', () => {
+    clients.delete(client);
+    const left = (streamsByIp.get(ip) ?? 1) - 1;
+    if (left > 0) streamsByIp.set(ip, left);
+    else streamsByIp.delete(ip);
+  });
 }
+
+// A plain per-IP cap on API requests per minute, well above what a busy marshal or a driver
+// sending every 10 seconds needs, so a script cannot keep the server busy on its own.
+const API_PER_MINUTE = 600;
+const apiHits = new Map();
+function limitApi(req) {
+  const t = Date.now();
+  const ip = clientIp(req);
+  let e = apiHits.get(ip);
+  if (!e || e.resetAt <= t) {
+    e = { n: 0, resetAt: t + 60_000 };
+    apiHits.set(ip, e);
+  }
+  if (++e.n > API_PER_MINUTE) throw new HttpError(429, 'Too many requests. Wait a minute and try again.');
+}
+setInterval(() => {
+  const t = Date.now();
+  for (const [k, v] of apiHits) if (v.resetAt <= t) apiHits.delete(k);
+}, 60_000).unref();
 
 // ------------------------------------------------------------------ request helpers
 
@@ -139,7 +172,12 @@ function cookies(req) {
   const out = {};
   for (const part of String(req.headers.cookie ?? '').split(';')) {
     const i = part.indexOf('=');
-    if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    if (i <= 0) continue;
+    try {
+      out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    } catch {
+      /* a malformed cookie is ignored, never an error */
+    }
   }
   return out;
 }
@@ -369,7 +407,12 @@ function serveFile(res, base, rel) {
 }
 
 function serveStatic(req, res, url) {
-  const p = decodeURIComponent(url.pathname);
+  let p;
+  try {
+    p = decodeURIComponent(url.pathname);
+  } catch {
+    throw new HttpError(400, 'Bad address.');
+  }
   if (PAGES[p] && serveFile(res, PUBLIC, PAGES[p])) return;
   if (p.startsWith('/vendor/leaflet/') && serveFile(res, LEAFLET, p.slice('/vendor/leaflet/'.length))) return;
   if (serveFile(res, PUBLIC, p)) return;
@@ -380,7 +423,7 @@ function serveStatic(req, res, url) {
 // ------------------------------------------------------------------ server
 
 // The Android app loads its pages from the phone (https://localhost) and calls this API.
-const APP_ORIGINS = new Set(['https://localhost', 'capacitor://localhost', 'http://localhost']);
+const APP_ORIGINS = new Set(['https://localhost', 'capacitor://localhost']);
 
 function allowApp(req, res) {
   const origin = req.headers.origin;
@@ -429,7 +472,10 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(204);
       return res.end();
     }
-    if (url.pathname.startsWith('/api/')) await api(req, res, url);
+    if (url.pathname.startsWith('/api/')) {
+      limitApi(req);
+      await api(req, res, url);
+    }
     else if (req.method === 'GET' || req.method === 'HEAD') serveStatic(req, res, url);
     else throw new HttpError(405, 'Method not allowed.');
   } catch (err) {

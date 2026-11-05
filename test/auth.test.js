@@ -168,3 +168,25 @@ test('stream tickets work once, for 30 seconds, and die with the session', async
   auth.logout(me);
   assert.equal(auth.redeemTicket(orphan), null, 'signed out');
 });
+
+test('a signed-in session cannot be used to guess the PIN: wrong current PINs lock the account and end every session', async () => {
+  const { auth } = setup();
+  const a = await admin(auth);
+  const other = await auth.login({ phone: '0821111111', pin: '482915' });
+  for (let i = 0; i < 4; i++) {
+    await assert.rejects(auth.changePin(a, '000001', '593026'), { status: 400 });
+  }
+  await assert.rejects(auth.changePin(a, '000001', '593026'), { status: 429 });
+  assert.equal(auth.authenticate(other.token), null, 'every session is gone, this one too');
+  assert.equal(auth.sessionAlive(a.sessionId), false);
+  await assert.rejects(auth.login({ phone: '0821111111', pin: '482915' }), { status: 429 }, 'locked even with the right PIN');
+});
+
+test('the right current PIN clears earlier wrong guesses', async () => {
+  const { auth } = setup();
+  const a = await admin(auth);
+  for (let i = 0; i < 4; i++) await assert.rejects(auth.changePin(a, '000001', '593026'), { status: 400 });
+  await auth.changePin(a, '482915', '593026');
+  for (let i = 0; i < 4; i++) await assert.rejects(auth.changePin(a, '000001', '718204'), { status: 400 });
+  assert.ok(auth.sessionAlive(a.sessionId));
+});

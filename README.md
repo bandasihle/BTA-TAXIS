@@ -53,7 +53,25 @@ npm run app:build  # copies public/ and Leaflet into www/ and syncs them into an
 npm run app:open   # opens the project in Android Studio; press Run for a phone or emulator
 ```
 
-Run `npm run app:build` again after changing anything in `public/`. Server changes need a deploy to Render before the app sees them.
+Run `npm run app:build` again after changing anything in `public/`. Server changes need a deploy to Render before the app sees them. In the app each page carries the same Content-Security-Policy as the website, as a `<meta>` tag added by the build. App data is kept out of Android backups and phone-to-phone transfers, so the sign-in token stays on the phone.
+
+**Release build (for Play or for handing out).** Debug builds can be inspected over USB and are signed with Android's shared test key, so never hand one out. Release builds need your own signing key. Create it once and keep it out of git:
+
+```sh
+cd android
+keytool -genkeypair -v -keystore danki-release.jks -alias danki -keyalg RSA -keysize 4096 -validity 10000
+```
+
+Then create `android/keystore.properties` (it's in `.gitignore`):
+
+```
+storeFile=danki-release.jks
+storePassword=<the password you chose>
+keyAlias=danki
+keyPassword=<the password you chose>
+```
+
+Build with `./gradlew bundleRelease` (an `.aab` for Google Play) or `./gradlew assembleRelease` (an `.apk`). Back up the `.jks` and its password in two safe places. Without them you can never update the app, and anyone who has them can sign a fake update.
 
 Settings (environment variables): `PORT` (default 3000), `DB_FILE` (default `data/taxi.db`), `TRUST_PROXY_HOPS` (default 0; set 1 behind Render's proxy so the sign-in limit sees the real client address), and `BOOTSTRAP_ADMIN_PHONE` + `BOOTSTRAP_ADMIN_PIN` (+ optional `BOOTSTRAP_ADMIN_NAME`) to create the first admin on a host with no shell. Only used while there are no accounts; set them as secrets.
 

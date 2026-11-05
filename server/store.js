@@ -28,6 +28,13 @@ export function toId(v) {
   return null;
 }
 
+/** Optional free text: trimmed, at most `max` characters, or null. */
+function optText(value, max, what) {
+  const s = String(value ?? '').trim();
+  if (s.length > max) throw new HttpError(400, `Keep the ${what} under ${max} characters.`);
+  return s || null;
+}
+
 const AT_RANK = [STATUS.ARRIVED, STATUS.QUEUED, STATUS.LOADING];
 
 // Expected time on the road, for "arriving in about 20 min": an average taxi speed plus
@@ -240,11 +247,11 @@ export function createStore(db, opts = {}) {
 
     const id = tx(() => {
       let driverId = null;
-      const driverName = String(input.driverName ?? '').trim();
-      if (driverName) driverId = Number(run('INSERT INTO drivers (name, phone) VALUES (?, ?)', driverName, input.driverPhone ?? null).lastInsertRowid);
+      const driverName = optText(input.driverName, 60, 'driver name');
+      if (driverName) driverId = Number(run('INSERT INTO drivers (name, phone) VALUES (?, ?)', driverName, optText(input.driverPhone, 20, 'driver phone')).lastInsertRowid);
       const res = run(
         'INSERT INTO taxis (plate, capacity, owner_name, driver_id, status, rank_id, home_rank_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        plate, capacity, String(input.ownerName ?? '').trim() || null, driverId, STATUS.OFF_DUTY, homeRankId, homeRankId,
+        plate, capacity, optText(input.ownerName, 60, 'owner name'), driverId, STATUS.OFF_DUTY, homeRankId, homeRankId,
       );
       const taxiId = Number(res.lastInsertRowid);
       log(taxiId, 'REGISTERED', homeRankId, null, input.by ?? 'marshal', 'Registered as a new taxi');
@@ -305,10 +312,10 @@ export function createStore(db, opts = {}) {
         out[key] = v;
       }
     }
-    if (input.area !== undefined) out.area = String(input.area ?? '').trim() || null;
-    if (input.note !== undefined) out.note = String(input.note ?? '').trim() || null;
+    if (input.area !== undefined) out.area = optText(input.area, 80, 'area');
+    if (input.note !== undefined) out.note = optText(input.note, 300, 'note');
     if (input.verified !== undefined) out.verified = input.verified ? 1 : 0;
-    if (input.source !== undefined) out.source = String(input.source ?? '').trim() || null;
+    if (input.source !== undefined) out.source = optText(input.source, 200, 'source');
     if (input.regionId !== undefined) {
       // A rank with a region is listed for passengers to board at; without one it is only a destination.
       const regionId = input.regionId == null || input.regionId === '' ? null : String(input.regionId);

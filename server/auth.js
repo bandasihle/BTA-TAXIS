@@ -181,11 +181,23 @@ export function createAuth(db, opts = {}) {
 
   async function changePin(user, oldPin, newPin) {
     const u = getUser(user.id);
-    if (!(await pinMatches(String(oldPin ?? ''), u.pin_hash))) throw new HttpError(400, 'Your current PIN is wrong.');
+    if (u.locked_until && u.locked_until > now()) throw new HttpError(429, 'Too many wrong PINs. Wait 15 minutes and sign in again.');
+    if (!(await pinMatches(String(oldPin ?? ''), u.pin_hash))) {
+      // Wrong current PINs count like wrong sign-ins, so a stolen session cannot be used to
+      // guess the PIN. At the limit the account locks and every session ends, this one too.
+      const failed = u.failed_logins + 1;
+      if (failed >= MAX_FAILED) {
+        run('UPDATE users SET failed_logins = 0, locked_until = ? WHERE id = ?', now() + LOCK_MS, u.id);
+        endSessions(u.id);
+        throw new HttpError(429, 'Too many wrong PINs. You are signed out; wait 15 minutes and sign in again.');
+      }
+      run('UPDATE users SET failed_logins = ? WHERE id = ?', failed, u.id);
+      throw new HttpError(400, 'Your current PIN is wrong.');
+    }
     const problem = pinProblem(newPin);
     if (problem) throw new HttpError(400, problem);
     if (await pinMatches(newPin, u.pin_hash)) throw new HttpError(400, 'Choose a PIN different from the old one.');
-    run('UPDATE users SET pin_hash = ?, must_change_pin = 0 WHERE id = ?', await hashPin(newPin), u.id);
+    run('UPDATE users SET pin_hash = ?, must_change_pin = 0, failed_logins = 0 WHERE id = ?', await hashPin(newPin), u.id);
     // Other devices are signed out; this one keeps its session.
     run('DELETE FROM sessions WHERE user_id = ? AND id != ?', u.id, user.sessionId);
     return { message: 'PIN changed' };

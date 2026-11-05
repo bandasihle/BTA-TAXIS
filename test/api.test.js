@@ -283,3 +283,23 @@ test('driver GPS: drivers only, their own taxi only, consent first; passengers s
   assert.ok(!(await call('GET', '/api/positions')).data.some((p) => p.gps), 'withdrawing deletes the point');
   assert.equal((await call('POST', '/api/driver/position', { token, body: point() })).status, 403);
 });
+
+test('malformed addresses and cookies are refused politely, never a server error', async () => {
+  assert.equal((await fetch(`${BASE}/%E0%A4%A.html`)).status, 400);
+  const r = await call('GET', '/api/me', { headers: { Cookie: 'bta_session=%E0%A4%A' } });
+  assert.equal(r.status, 401);
+});
+
+test('the API answers the app (https://localhost) cross-origin, not plain http://localhost', async () => {
+  const app = await fetch(`${BASE}/api/snapshot`, { headers: { Origin: 'https://localhost' } });
+  assert.equal(app.headers.get('access-control-allow-origin'), 'https://localhost');
+  const plain = await fetch(`${BASE}/api/snapshot`, { headers: { Origin: 'http://localhost' } });
+  assert.equal(plain.headers.get('access-control-allow-origin'), null);
+});
+
+test('free-text fields have a length limit', async () => {
+  const cookie = await webLogin(ADMIN.phone, ADMIN.pin);
+  const r = await call('POST', '/api/taxis', { cookie, body: { plate: 'LONG 1 GP', ownerName: 'x'.repeat(61) } });
+  assert.equal(r.status, 400);
+  assert.match(r.data.error, /owner name/);
+});
