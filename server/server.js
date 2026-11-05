@@ -261,6 +261,11 @@ async function api(req, res, url) {
     const user = need(req, ['driver']);
     return json(res, 200, positions.record(user, await readBody(req)));
   }
+  if (m === 'DELETE' && p === '/api/driver/position') {
+    const user = need(req, ['driver']);
+    positions.forget(user.taxiId); // the driver pressed Stop: their taxi's point goes now
+    return json(res, 200, { message: 'Sharing stopped.' });
+  }
 
   // rank work: marshals at their own rank, admins anywhere
   if (m === 'POST' && p === '/api/action') {

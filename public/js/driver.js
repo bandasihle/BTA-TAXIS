@@ -1,8 +1,10 @@
 // Driver mode: after accepting the location notice, the driver switches sharing on and the
 // phone sends its GPS position every few seconds while the taxi is on a trip. Sharing is
-// always started by the driver, never automatically, and stops with one tap.
-import { $, esc, api, toast, busy, confirmDialog, renderTopbar, requireStaff, connect, clockTime, IS_APP } from './common.js';
+// always started by the driver, never automatically, and stops with one tap. In the app it
+// carries on with the phone locked, with an Android notification showing the whole time.
+import { $, esc, api, toast, busy, confirmDialog, renderTopbar, requireStaff, connect, clockTime } from './common.js';
 import { CONSENT_VERSION, CONSENT_NOTICE } from './consent.js';
+import { watchLocation, openLocationSettings, BACKGROUND } from './location.js';
 
 const me = await requireStaff(['driver']);
 renderTopbar('/driver.html', me);
@@ -13,11 +15,12 @@ const STATUS_TEXT = { OFF_DUTY: 'Off duty', ARRIVED: 'At a rank', QUEUED: 'In a 
 
 let info = null;
 let taxiStatus = null;
-let watchId = null;
+let stopWatch = null;
 let wakeLock = null;
 let lastSent = 0;
 let sending = false;
-let state = { text: '', at: null, accuracy: null, kind: '' };
+const IDLE = { text: '', at: null, accuracy: null, kind: '', denied: false };
+let state = { ...IDLE };
 
 async function load() {
   try {
@@ -37,20 +40,22 @@ function render() {
     return;
   }
   if (!info.consented) return renderNotice();
-  const on = watchId != null;
+  const on = stopWatch != null;
   app.innerHTML = `<section class="driver-card">
       <p class="small muted">You drive</p>
       <p class="driver-plate"><span class="plate">${esc(info.taxi.plate)}</span></p>
       <p class="small muted">Taxi status: <b>${esc(STATUS_TEXT[taxiStatus] ?? 'Unknown')}</b></p>
       <button class="btn ${on ? 'danger' : 'go'} driver-go" type="button" id="toggle">${on ? 'Stop sharing my location' : 'Start sharing my location'}</button>
-      <p class="driver-state ${esc(state.kind)}" id="state">${on ? esc(state.text || 'Finding your position…') : 'Not sharing. Nothing is sent until you press Start.'}</p>
+      <p class="driver-state ${esc(state.kind)}" id="state">${on ? esc(state.text || 'Finding your position…') : esc(state.text || 'Not sharing. Nothing is sent until you press Start.')}</p>
+      ${state.denied && BACKGROUND ? '<button class="btn" type="button" id="settings">Open phone settings</button>' : ''}
       ${on && state.at ? `<p class="small muted">Last sent at ${clockTime(state.at)}${state.accuracy != null ? `, accurate to about ${Math.round(state.accuracy)} m` : ''}.</p>` : ''}
-      ${on ? `<p class="small muted">${IS_APP ? 'Keep this screen open while you drive.' : 'Keep this page open and the screen on while you drive.'} Your position is only used while your taxi is on a trip.</p>` : ''}
+      ${on ? `<p class="small muted">${BACKGROUND ? 'You can lock your phone or use other apps. A notification shows while sharing is on.' : 'Keep this page open and the screen on while you drive.'} Your position is only used while your taxi is on a trip.</p>` : ''}
     </section>
     <p class="small muted driver-foot">You agreed to the location notice on ${new Date(info.consentedAt).toLocaleDateString('en-ZA')}.
       <button class="btn sm quiet" type="button" id="notice">Read it again</button>
       <button class="btn sm quiet" type="button" id="withdraw">Withdraw consent</button></p>`;
-  $('#toggle').addEventListener('click', () => (watchId == null ? start() : stop()));
+  $('#toggle').addEventListener('click', () => (stopWatch == null ? start() : stop()));
+  $('#settings')?.addEventListener('click', openLocationSettings);
   $('#notice').addEventListener('click', () => renderNotice(true));
   $('#withdraw').addEventListener('click', withdraw);
 }
@@ -81,8 +86,7 @@ function renderNotice(reading = false) {
 
 function setState(text, kind = '', extra = {}) {
   state = { ...state, text, kind, ...extra };
-  const el = $('#state');
-  if (el) render();
+  render();
 }
 
 async function keepAwake() {
@@ -94,54 +98,59 @@ async function keepAwake() {
 }
 
 function start() {
-  if (!('geolocation' in navigator)) return toast('This phone cannot share its location.', 'error');
-  watchId = navigator.geolocation.watchPosition(onFix, onError, { enableHighAccuracy: true, maximumAge: 5_000, timeout: 30_000 });
   lastSent = 0;
-  keepAwake();
+  state = { ...IDLE };
+  stopWatch = watchLocation(onFix, onError);
+  if (!BACKGROUND) keepAwake();
   setState('Finding your position…');
 }
 
-function stop() {
-  if (watchId != null) navigator.geolocation.clearWatch(watchId);
-  watchId = null;
+/** Stops sharing. Unless the server has already dropped it, the taxi's point is deleted now. */
+function stop({ forget = true, text = '', denied = false } = {}) {
+  stopWatch?.();
+  stopWatch = null;
   wakeLock?.release().catch(() => {});
   wakeLock = null;
-  state = { text: '', at: null, accuracy: null, kind: '' };
+  state = { ...IDLE, text, kind: text ? 'warn' : '', denied };
   render();
+  if (forget) api('/api/driver/position', { method: 'DELETE' }).catch(() => {});
 }
 
-async function onFix(pos) {
-  if (watchId == null || sending || Date.now() - lastSent < SEND_EVERY_MS) return;
+async function onFix(fix) {
+  if (stopWatch == null || sending || Date.now() - lastSent < SEND_EVERY_MS) return;
   sending = true;
   lastSent = Date.now();
-  const { latitude: lat, longitude: lng, accuracy } = pos.coords;
   try {
-    const r = await api('/api/driver/position', { method: 'POST', body: { lat, lng, accuracy, at: pos.timestamp } });
-    setState(r.message, r.stored ? 'ok' : '', r.stored ? { at: Date.now(), accuracy } : {});
+    const r = await api('/api/driver/position', { method: 'POST', body: fix });
+    if (stopWatch == null) return; // stopped while this was on its way
+    setState(r.message, r.stored ? 'ok' : '', r.stored ? { at: Date.now(), accuracy: fix.accuracy } : {});
     if (r.arrived) toast(r.message);
   } catch (err) {
     if (err.status === 403 || err.status === 409) {
-      stop();
+      stop({ forget: false });
       toast(err.message, 'error');
       load();
-    } else setState(err.status ? err.message : 'No signal. Trying again…', 'warn');
+    } else if (stopWatch != null) setState(err.status ? err.message : 'No signal. Trying again…', 'warn');
   } finally {
     sending = false;
   }
 }
 
 function onError(err) {
-  if (err.code === err.PERMISSION_DENIED) {
-    stop();
-    setState('');
-    toast(IS_APP ? 'Location is switched off for Danki Driver. Allow it in your phone\'s Settings > Apps > Danki Driver > Permissions.' : 'Location is blocked for this site. Allow it in your browser settings, then press Start again.', 'error');
+  if (err.denied) {
+    stop({
+      text: BACKGROUND ? 'Location is not allowed for Danki Driver. Allow it in your phone settings, then press Start again.' : 'Location is blocked for this site. Allow it in your browser settings, then press Start again.',
+      denied: true,
+    });
+  } else if (err.off) {
+    stop({ text: 'Location is switched off on this phone. Switch it on, then press Start again.' });
   } else setState('Waiting for a GPS signal. Go outside or near a window if this takes long.', 'warn');
 }
 
 async function withdraw() {
   const ok = await confirmDialog('Withdraw consent?', 'Sharing stops now and your taxi\'s last position is deleted. You can agree again later.', 'Withdraw', { danger: true });
   if (!ok) return;
-  stop();
+  stop({ forget: false }); // withdrawing deletes the point anyway
   try {
     toast((await api('/api/driver/consent', { method: 'DELETE' })).message);
   } catch (err) {
@@ -152,7 +161,7 @@ async function withdraw() {
 
 // The screen lock is dropped when the app goes to the background; take it again on return.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && watchId != null) keepAwake();
+  if (document.visibilityState === 'visible' && stopWatch != null && !BACKGROUND) keepAwake();
 });
 
 // The taxi's status (off duty, queued, on a trip) changes as marshals record it.

@@ -4,4 +4,6 @@
     <string name="title_activity_main">Danki Driver</string>
     <string name="package_name">za.co.bta.dankidriver</string>
     <string name="custom_url_scheme">za.co.bta.dankidriver</string>
+    <string name="capacitor_background_geolocation_notification_channel_name">Location sharing</string>
+    <string name="capacitor_background_geolocation_notification_color">#262A7D</string>
 </resources>

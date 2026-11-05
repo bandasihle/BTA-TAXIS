@@ -65,6 +65,7 @@ Passengers need no account. Staff sign in at `/login` with their cellphone numbe
 - **Accounts.** Only an admin can add people. A new or reset PIN is shown to the admin once, and the person must choose their own at first sign-in. Weak PINs (`111111`, `123456`) are refused.
 - **PINs** are stored as scrypt hashes with a salt per person. 5 wrong PINs lock an account for 15 minutes, and each device gets 20 tries per 15 minutes. A wrong phone number and a wrong PIN get the same answer, so nobody can find out who has an account.
 - **Sessions** last 7 days. Only a hash of the session token is stored. The website keeps it in an HttpOnly, SameSite=Strict cookie and refuses changes that come from other sites; the Android app sends it as a Bearer token and gets a one-time, 30-second ticket for the live stream. Switching an account off, changing its role or resetting its PIN signs it out on every phone.
+- **Location plugin.** `@capacitor-community/background-geolocation` 1.3.1 is pinned exactly and was read before adding: no network, storage or tracking of its own. Its service is overridden to `exported="false"` in our manifest, so other apps cannot stop a driver's sharing.
 - **Audit.** "Who did it" in the trip log comes from the session, never from what the phone sends.
 - **Public data.** Passengers see ranks, routes, plates and seats. Driver, owner and marshal names and the trip log go only to signed-in staff.
 - **Headers.** Every response has a Content-Security-Policy, `X-Frame-Options: DENY`, `nosniff`, and a referrer policy that sends other sites only our site name (OpenStreetMap needs it for map tiles), never the page path.
@@ -94,10 +95,10 @@ Passengers need no account. Staff sign in at `/login` with their cellphone numbe
 Location is personal information, so the rules are strict and enforced on the server:
 
 - **Consent first.** A driver sees a plain-language notice (`public/js/consent.js`: who, what, why, who sees it, how long, their rights) and must agree before anything is accepted. The notice has a version; if it changes, every driver must agree again. Drivers can withdraw at any time from `/driver`, which deletes their taxi's point immediately.
-- **Driver starts it.** Nothing is sent until the driver presses Start, and only while that screen is open. The Android app asks for location permission at that moment, not at install.
-- **Only the latest point.** One row per taxi, no history. It is deleted when the taxi arrives or goes off duty, when consent is withdrawn or the driver is unlinked, and after 10 minutes without an update.
+- **Driver starts it.** Nothing is sent until the driver presses Start. In the Android app sharing carries on with the phone locked (a foreground service from `@capacitor-community/background-geolocation`), and Android shows a notification the whole time; on the website it runs only while the page is open. The app asks for location permission when Start is pressed, not at install. Pressing Stop deletes the taxi's point straight away.
+- **Only the latest point.** One row per taxi, no history. It is deleted when the driver presses Stop, when the taxi arrives or goes off duty, when consent is withdrawn or the driver is unlinked, and after 10 minutes without an update.
 - **Only on a trip.** Points sent while the taxi waits at a rank or is off duty are not kept.
-- **Not trusted.** A point must come from the signed-in driver linked to that taxi (a taxi id in the request is ignored), lie inside South Africa, be under 2 minutes old by the server's clock, not imply more than 180 km/h since the last one, and arrive at most once every 3 seconds.
+- **Not trusted.** A point must come from the signed-in driver linked to that taxi (a taxi id in the request is ignored), lie inside South Africa, not be marked by Android as coming from a fake-location app, be under 2 minutes old by the server's clock, not imply more than 180 km/h since the last one, and arrive at most once every 3 seconds.
 - **What passengers see.** Only for taxis on a trip, and only while the point is under 2 minutes old: a dot rounded to about 10 m with the plate and expected arrival. Never the driver's name, the accuracy or the time.
 
 Admins link a driver to a taxi on `/users`.
@@ -130,12 +131,14 @@ This prototype uses a plain Node server, Node's built-in SQLite and vanilla JS r
 
 ## API
 
-Public: `GET /api/snapshot`, `GET /api/stream` (SSE; `?pos=1` adds positions every second). Staff (signed in): `GET /api/stream?staff=1` (cookie, or `&ticket=` from `POST /api/stream-ticket`) for the full view; `POST /api/action` with `{type, taxiId, ...}` where type is `checkIn` (`rankId`, `routeId`), `seat` (`delta` ±1), `depart`, `arrive`, `remove`, `offDuty` or `move` (`dir` up or down). Also `POST /api/taxis`, `GET /api/taxis/:id/history`. Admins: `POST/PUT/DELETE /api/ranks`, `POST/DELETE /api/routes`, `PUT/DELETE /api/routes/:id/fare {from, until, price}`, `GET/POST /api/users`, `PUT /api/users/:id`, `POST /api/users/:id/pin`. Drivers: `GET /api/driver`, `POST /api/driver/consent {version}`, `DELETE /api/driver/consent`, `POST /api/driver/position {lat, lng, accuracy, at}`. Public: `GET /api/positions`. Anyone: `POST /api/login {phone, pin, client?}`, `POST /api/logout`, `GET /api/me`, `POST /api/me/pin {oldPin, newPin}`.
+Public: `GET /api/snapshot`, `GET /api/stream` (SSE; `?pos=1` adds positions every second). Staff (signed in): `GET /api/stream?staff=1` (cookie, or `&ticket=` from `POST /api/stream-ticket`) for the full view; `POST /api/action` with `{type, taxiId, ...}` where type is `checkIn` (`rankId`, `routeId`), `seat` (`delta` ±1), `depart`, `arrive`, `remove`, `offDuty` or `move` (`dir` up or down). Also `POST /api/taxis`, `GET /api/taxis/:id/history`. Admins: `POST/PUT/DELETE /api/ranks`, `POST/DELETE /api/routes`, `PUT/DELETE /api/routes/:id/fare {from, until, price}`, `GET/POST /api/users`, `PUT /api/users/:id`, `POST /api/users/:id/pin`. Drivers: `GET /api/driver`, `POST /api/driver/consent {version}`, `DELETE /api/driver/consent`, `POST /api/driver/position {lat, lng, accuracy, at, simulated?}`, `DELETE /api/driver/position` (Stop). Public: `GET /api/positions`. Anyone: `POST /api/login {phone, pin, client?}`, `POST /api/logout`, `GET /api/me`, `POST /api/me/pin {oldPin, newPin}`.
 
 ## Known gaps
 
 - Locking an account after wrong PINs means someone who knows a marshal's number can lock them out for 15 minutes at a time. An admin can see the lock on `/users`.
-- Sharing stops when the driver leaves the screen or the phone locks; background location in the Android app is a later step.
+- On the website, sharing stops when the driver leaves the page or the phone locks; drivers should use the Android app.
+- Some phone makers (Xiaomi, Huawei, Oppo, Samsung on battery saver) kill background apps despite the notification. Drivers may need to set Danki Driver to "No restrictions" under battery settings.
+- The fake-location check trusts the app; a modified app could hide it. The speed and time checks still apply.
 - Rank pins other than Etwatwa Las Vegas sit on the right area, not the exact rank.
 - Map tiles come from openstreetmap.org and need a connection.
 - Routes follow the fastest road for a car, from the free OSRM route planner (router.project-osrm.org), which is not always the road taxis take. The fare-list routes are saved in `server/roads.json`; a route added or moved in the editor fetches its road when it is saved and keeps a stand-in line if the planner cannot be reached.

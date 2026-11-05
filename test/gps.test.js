@@ -165,3 +165,11 @@ test('accounts: only drivers are linked to a taxi, and only to a registered one;
   const moved = auth.updateUser(admin, driver.id, { taxiId: null });
   assert.equal(moved.leftTaxi, taxiId, 'unlinking tells the server to drop the old taxi\'s point');
 });
+
+test('positions marked as coming from a fake-location app are not kept', () => {
+  const { source, driver, taxiId, from, fix } = onTrip();
+  const r = source.record(driver, fix(from, { simulated: true }));
+  assert.equal(r.stored, false);
+  assert.match(r.message, /fake location/);
+  assert.equal(gpsDot(source, taxiId), undefined);
+});

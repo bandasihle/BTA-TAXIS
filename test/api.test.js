@@ -268,6 +268,15 @@ test('driver GPS: drivers only, their own taxi only, consent first; passengers s
   const dots = (await call('GET', '/api/positions')).data.filter((p) => p.gps);
   assert.deepEqual(dots.map((p) => p.id), [taxi.id], "the point went to the driver's own taxi, not the one in the request");
   assert.equal(dots[0].lat, +(etwatwa.lat + 0.00123456).toFixed(4));
+
+  // pressing Stop deletes the point; only the driver can do that, and only for their own taxi
+  assert.equal((await call('DELETE', '/api/driver/position', { cookie: marshal })).status, 403);
+  assert.equal((await call('DELETE', '/api/driver/position', { cookie: adminCookie })).status, 403);
+  assert.ok((await call('GET', '/api/positions')).data.some((p) => p.gps), 'still there after the refused requests');
+  assert.equal((await call('DELETE', '/api/driver/position', { token })).status, 200);
+  assert.ok(!(await call('GET', '/api/positions')).data.some((p) => p.gps), 'Stop deletes the point');
+  await new Promise((r) => setTimeout(r, 3_100));
+  assert.equal((await call('POST', '/api/driver/position', { token, body: point() })).data.stored, true, 'sharing can start again');
   assert.ok(!JSON.stringify(dots).includes('Sipho') && !('accuracy' in dots[0]));
 
   assert.equal((await call('DELETE', '/api/driver/consent', { token })).status, 200);

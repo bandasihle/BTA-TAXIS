@@ -48,6 +48,9 @@ export class PositionSource {
     if (!(lat >= -35 && lat <= -22 && lng >= 16 && lng <= 33)) throw new HttpError(400, 'That position is outside South Africa.');
     if (!(accuracy >= 0 && accuracy <= 5000)) throw new HttpError(400, 'Missing or impossible GPS accuracy.');
     if (!(Math.abs(t - at) <= MAX_AGE_MS)) return { stored: false, message: 'That position is too old to use.' };
+    // Android marks positions from fake-location apps. A changed app could hide this, so it is
+    // one check among the others, not proof.
+    if (input.simulated === true) return { stored: false, message: 'Your phone is using a fake location app. Switch it off to share your position.' };
 
     const taxi = this.db.prepare('SELECT * FROM taxis WHERE id = ?').get(user.taxiId);
     if (!taxi) throw new HttpError(409, 'Your taxi is no longer registered. Ask an admin.');

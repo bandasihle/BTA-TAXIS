@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="true"
@@ -33,6 +34,13 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- The location plugin declares its service exported. Nothing outside this app needs
+             it, and another app binding and unbinding it would stop a driver's sharing. -->
+        <service
+            android:name="com.equimaps.capacitor_background_geolocation.BackgroundGeolocationService"
+            android:exported="false"
+            tools:replace="android:exported" />
     </application>
 
     <!-- Permissions -->
@@ -41,5 +49,6 @@
     <!-- Driver mode only: asked for when the driver presses Start, never at install. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <!-- Passengers' phones need no GPS; the plugin would otherwise make it required on Play. -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" tools:replace="android:required" />
 </manifest>
