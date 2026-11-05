@@ -103,6 +103,10 @@ Location is personal information, so the rules are strict and enforced on the se
 
 Admins link a driver to a taxi on `/users`.
 
+### Look
+
+Danki Driver (`/`) and the driver screen share `public/css/slip-base.css`: a light "till slip" look (thermal white, ink, one BTA blue, figures in Spline Sans Mono) under a frosted header that takes the page title once the big title scrolls under it. Tapping a destination prints its slip: fare, hours, what is running now and the taxi loading at the rank, with the trip preview. The font is bundled in `public/fonts/` (SIL Open Font License, see the licence file there), so these pages load no third-party fonts. The staff screens keep `app.css`.
+
 ## Layout
 
 ```

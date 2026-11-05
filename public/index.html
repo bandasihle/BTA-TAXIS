@@ -5,29 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Danki Driver</title>
   <meta name="description" content="Find your taxi rank on the map and see where the taxis go, when they run and what they cost. Benoni Taxi Association.">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#fbfbf8">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/img/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="/img/icon-192.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap">
+  <link rel="preload" href="/fonts/spline-sans-mono-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/css/slip-base.css">
   <link rel="stylesheet" href="/css/danki.css">
   <script src="/vendor/leaflet/leaflet.js"></script>
 </head>
 <body class="dk">
-  <header class="dk-head">
-    <div class="dk-head-in">
-      <a class="dk-word" href="#/" aria-label="Danki Driver, back to provinces">
-        <span class="dk-word-a">Danki</span><span class="dk-word-b">Driver</span>
-      </a>
-      <img class="dk-bta" src="/img/bta-logo.png" width="56" height="56" alt="Benoni Taxi Association, SANTACO">
+  <header class="sh" id="sh">
+    <div class="sh-in">
+      <a class="sh-word" href="#/" aria-label="Danki Driver, back to provinces">Danki <b>Driver</b></a>
+      <span class="sh-title" id="sh-title" aria-hidden="true"></span>
+      <span class="sh-end"><img src="/img/bta-logo.png" width="36" height="36" alt="Benoni Taxi Association, SANTACO"></span>
     </div>
   </header>
   <div class="dk-app">
     <div class="dk-map" id="map" role="region" aria-label="Map. Tap a pin to choose it, or use the list."></div>
-    <section class="dk-panel">
+    <section class="dk-panel" id="panel">
       <nav class="dk-trail" id="trail" aria-label="You are here"></nav>
       <main class="dk-main" id="view" tabindex="-1"></main>
       <footer class="dk-foot">
@@ -36,6 +34,28 @@
       </footer>
     </section>
   </div>
+
+  <section class="dk-slip slip-paper" id="slip" role="dialog" aria-labelledby="slip-to" hidden>
+    <div class="dk-slip-top">
+      <span class="slip-label">Association fare</span>
+      <button class="dk-slip-close" id="slip-close" type="button" aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <h2 class="dk-slip-to" id="slip-to" tabindex="-1"></h2>
+    <p class="dk-slip-from" id="slip-from"></p>
+    <div class="dk-slip-fare"><span>One way, cash</span><b id="slip-price"></b></div>
+    <dl class="slip-rows">
+      <dt>Hours</dt><dd id="slip-hours"></dd>
+      <dt>Right now</dt><dd id="slip-now"></dd>
+      <dt>At the rank</dt><dd id="slip-load"></dd>
+    </dl>
+    <button class="dk-preview" id="slip-trip" type="button" aria-pressed="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18c3-1 4-5 8-6s5-4 8-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="18" r="2" fill="currentColor"/><circle cx="20" cy="6" r="2" fill="currentColor"/></svg>
+      <span>Preview the trip on the map</span>
+    </button>
+    <p class="dk-slip-note">Fares are set by the Benoni Taxi Association.</p>
+  </section>
   <script type="module" src="/js/danki.js"></script>
 </body>
 </html>

@@ -523,17 +523,3 @@ a.role:hover h2 { text-decoration: underline; text-decoration-thickness: 2px; te
 .fare-form .check { align-self: center; }
 .fares-add { grid-template-columns: minmax(0, 1fr) auto; }
 @media (max-width: 760px) { .fares-add { grid-template-columns: 1fr; } .fare-form .field { width: calc(50% - 6px); } }
-
-/* ---------------------------------------------------------------- driver */
-.driver { max-width: 520px; margin: 0 auto; padding: 24px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
-.driver-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-.driver-card h1 { font-family: var(--font-cond); font-weight: 700; font-size: 34px; line-height: 1; }
-.driver-plate .plate { font-size: 28px; }
-.driver-go { min-height: 64px; font-size: 19px; font-weight: 700; }
-.driver-state { font-weight: 600; }
-.driver-state.ok { color: var(--go); }
-.driver-state.warn { color: var(--stop); }
-.driver-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.notice { display: grid; gap: 4px 0; }
-.notice dt { font-weight: 700; margin-top: 8px; }
-.notice dd { margin: 0; color: var(--ink-2); }

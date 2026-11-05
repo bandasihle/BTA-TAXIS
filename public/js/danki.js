@@ -26,6 +26,11 @@ try {
 
 const view = document.getElementById('view');
 const trail = document.getElementById('trail');
+const panel = document.getElementById('panel');
+const head = document.getElementById('sh');
+const headTitle = document.getElementById('sh-title');
+const slip = document.getElementById('slip');
+const $slip = (id) => document.getElementById(`slip-${id}`);
 
 const href = (...ids) => `#/${ids.join('/')}`;
 const CHEVRON = '<svg class="dk-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -47,6 +52,10 @@ const tripLayer = L.layerGroup().addTo(map);
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
 let current = {};
+let destPins = [];
+
+/** The frosted header covers the top of the map; fitted views leave room under it. */
+const headRoom = () => head.offsetHeight;
 
 /** A labelled pin. kind: area | rank | here | dest. */
 function pin(at, { label, tag = '', kind = 'area', link = null, dim = false, bare = false, title = label }) {
@@ -57,7 +66,8 @@ function pin(at, { label, tag = '', kind = 'area', link = null, dim = false, bar
   });
   const m = L.marker(at, { icon, title, keyboard: !!link, interactive: !!link, zIndexOffset: kind === 'here' ? 1000 : dim ? -100 : 0 });
   if (link) m.on('click', () => (location.hash = link));
-  return m.addTo(pins);
+  m.addTo(pins);
+  return m;
 }
 
 function fit(points, maxZoom) {
@@ -66,7 +76,7 @@ function fit(points, maxZoom) {
   // labels sit to the right of their pins, so leave more room on that side
   else {
     const right = Math.min(170, map.getSize().x * 0.25);
-    map.fitBounds(L.latLngBounds(points), { paddingTopLeft: [24, 30], paddingBottomRight: [right, 30], maxZoom, animate: !first });
+    map.fitBounds(L.latLngBounds(points), { paddingTopLeft: [24, 30 + headRoom()], paddingBottomRight: [right, 30], maxZoom, animate: !first });
   }
 }
 
@@ -77,13 +87,11 @@ function drawMap(province, region, rank) {
 
   if (rank) {
     for (const k of region.ranks) if (k !== rank) pin(k.at, { label: shortName(k), kind: 'rank', dim: true, bare: true, link: href(province.id, region.id, k.id) });
-    for (const d of rank.destinations) {
-      pin(d.at, {
+    destPins = rank.destinations.map((d) => pin(d.at, {
         label: `${d.name}  ${priceLabel(d.price)}`, kind: 'dest',
         title: `${d.name}, ${priceLabel(d.price)}`,
         link: d.toPath ? href(...d.toPath) : null,
-      });
-    }
+      }));
     pin(rank.at, { label: shortName(rank), kind: 'here' });
     drawRouteLines();
     fit([rank.at, ...rank.destinations.map((d) => d.at)], 13);
@@ -159,20 +167,18 @@ function fares(province, region, rank) {
     <ul class="dk-fares" aria-label="Taxis from ${esc(from)}">
       ${rank.destinations.map((d, i) => `
         <li class="dk-fare" data-i="${i}">
-          <div class="dk-fare-main">
-            <span class="dk-to"><small>${esc(from)}</small><span class="dk-arrow" aria-hidden="true">→</span><span class="vh">to </span>${esc(d.name)}</span>
-            <span class="dk-time">${timeLabel(d.from)} – ${timeLabel(d.until)}</span>
-            <span class="dk-price"><span class="dk-r">R</span>${priceLabel(d.price).slice(1)}</span>
-          </div>
-          <div class="dk-live">
-            <span class="dk-open" data-open></span>
-            <span class="dk-load" data-load></span>
-          </div>
-          <button class="dk-preview" type="button" data-trip="${i}" aria-pressed="false">Preview the trip</button>
+          <button class="dk-fare-btn" type="button" data-slip="${i}" aria-expanded="false" aria-controls="slip">
+            <span class="dk-to"><span class="dk-to-name"><span class="vh">To </span>${esc(d.name)}</span></span>
+            <span class="dk-price">${priceLabel(d.price)}</span>
+            <span class="dk-when"><span class="dk-time">${hoursLabel(d)}</span><span class="dk-open" data-open></span></span>
+          </button>
+          <div class="dk-live"><span class="dk-load" data-load></span></div>
         </li>`).join('')}
     </ul>
     ${rank.exact ? '' : '<p class="dk-small">The pin shows the area. The exact rank spot still needs to be marked.</p>'}`;
 }
+
+const hoursLabel = (d) => `${timeLabel(d.from)} – ${timeLabel(d.until)}`;
 
 function crumbs(province, region, rank) {
   const parts = [['Provinces', '#/']];
@@ -204,6 +210,7 @@ function render() {
     return;
   }
 
+  closeSlip({ quiet: true });
   view.innerHTML = rank ? fares(province, region, rank)
     : region ? ranks(province, region)
       : province ? regions(province)
@@ -215,9 +222,10 @@ function render() {
   drawMap(province, region, rank);
   updateLive();
   drawTaxis();
+  watchTitle();
 
   if (!first) {
-    view.closest('.dk-panel').scrollTop = 0;
+    panel.scrollTop = 0;
     view.focus({ preventScroll: true });
   }
   first = false;
@@ -264,7 +272,10 @@ function updateLive() {
     const full = front.seats >= taxi.capacity;
     load.innerHTML = `${seatBar(front.seats, taxi.capacity)}<span>${full ? 'Full, leaving now' : `Loading: ${front.seats} of ${taxi.capacity} seats filled`}</span>`;
   });
+  if (slipIndex >= 0) fillSlip(slipIndex);
 }
+
+let routeLines = [];
 
 /** The road from the rank to each destination (a straight line until the routes load). */
 function drawRouteLines() {
@@ -272,9 +283,8 @@ function drawRouteLines() {
   lines.clearLayers();
   if (!rank) return;
   const ls = links();
-  rank.destinations.forEach((d, i) => {
-    L.polyline(ls?.[i]?.out?.polyline ?? [rank.at, d.at], { className: 'dk-line', interactive: false }).addTo(lines);
-  });
+  routeLines = rank.destinations.map((d, i) => L.polyline(ls?.[i]?.out?.polyline ?? [rank.at, d.at], { className: 'dk-line', interactive: false }).addTo(lines));
+  highlight(slipIndex);
 }
 
 // taxis on the road to or from this rank, on destinations that are running now
@@ -321,12 +331,14 @@ tripBox.hidden = true;
 tripBox.setAttribute('role', 'status');
 map.getContainer().append(tripBox);
 let tripFrame = 0;
+let tripIndex = -1;
 
 function stopTrip() {
   cancelAnimationFrame(tripFrame);
   tripLayer.clearLayers();
   tripBox.hidden = true;
-  view.querySelectorAll('.dk-preview[aria-pressed="true"]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+  tripIndex = -1;
+  $slip('trip').setAttribute('aria-pressed', 'false');
 }
 
 /** The point a fraction t (0..1) of the way along a line. */
@@ -347,11 +359,11 @@ function duration(km) {
   return mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h${mins % 60 ? ` ${mins % 60} min` : ''}`;
 }
 
-function previewTrip(i, button) {
+function previewTrip(i) {
   const { rank } = current;
   const d = rank.destinations[i];
   stopTrip();
-  button.setAttribute('aria-pressed', 'true');
+  tripIndex = i;
   const route = links()?.[i]?.out;
   const line = route?.polyline ?? [rank.at, d.at];
   const lengths = [0];
@@ -363,7 +375,7 @@ function previewTrip(i, button) {
     icon: L.divIcon({ className: 'dk-trip-icon', html: '<span class="dk-taxi is-trip"></span>', iconSize: [22, 22] }),
     keyboard: false, interactive: false, zIndexOffset: 2000,
   }).addTo(tripLayer);
-  map.fitBounds(L.latLngBounds(line), { paddingTopLeft: [40, 100], paddingBottomRight: [Math.min(150, map.getSize().x * 0.25), 40], maxZoom: 14 }); // room for the trip box and labels
+  map.fitBounds(L.latLngBounds(line), { paddingTopLeft: [40, 100 + headRoom()], paddingBottomRight: [Math.min(150, map.getSize().x * 0.25), 40], maxZoom: 14 }); // room for the trip box and labels
   tripBox.innerHTML = `<b>${esc(shortName(rank))} to ${esc(d.name)}</b><span>About ${duration(total / 1000)} on the road. ${priceLabel(d.price)}.</span>`;
   tripBox.hidden = false;
   if (map.getContainer().getBoundingClientRect().top < 0) map.getContainer().scrollIntoView({ behavior: reduceMotion.matches ? 'auto' : 'smooth' });
@@ -380,12 +392,92 @@ function previewTrip(i, button) {
   tripFrame = requestAnimationFrame(step);
 }
 
+// ------------------------------------------------------------------ the slip: one destination, printed
+
+let slipIndex = -1;
+let slipOpener = null;
+
+function highlight(i) {
+  destPins.forEach((m, j) => m.getElement()?.querySelector('.pin')?.classList.toggle('is-on', j === i));
+  routeLines.forEach((l, j) => l.getElement()?.classList.toggle('is-on', j === i));
+}
+
+/** Copies the destination's current state (hours, running, loading) onto the slip. */
+function fillSlip(i) {
+  const { rank } = current;
+  const d = rank?.destinations[i];
+  if (!d) return;
+  const row = view.querySelector(`.dk-fare[data-i="${i}"]`);
+  $slip('to').textContent = d.name;
+  $slip('from').textContent = `From ${shortName(rank)}`;
+  $slip('price').textContent = priceLabel(d.price);
+  $slip('hours').textContent = hoursLabel(d);
+  const open = row?.querySelector('[data-open]');
+  $slip('now').innerHTML = open?.textContent ? `<span class="${open.className}">${esc(open.textContent)}</span>` : '';
+  $slip('load').innerHTML = row?.querySelector('[data-load]')?.innerHTML || (runningNow(d, saMinutes()).open ? 'Not known yet' : 'No taxis now');
+  $slip('trip').setAttribute('aria-pressed', String(tripIndex === i));
+}
+
+function openSlip(i, opener) {
+  slipIndex = i;
+  slipOpener = opener;
+  view.querySelectorAll('.dk-fare-btn').forEach((b) => b.setAttribute('aria-expanded', String(b === opener)));
+  fillSlip(i);
+  highlight(i);
+  slip.hidden = false;
+  // feed the slip again from the bottom, as a printer would
+  slip.classList.remove('is-open');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    slip.classList.add('is-open');
+    $slip('to').focus({ preventScroll: true });
+  }));
+}
+
+function closeSlip({ quiet = false } = {}) {
+  if (slipIndex < 0) return;
+  slip.classList.remove('is-open');
+  view.querySelectorAll('.dk-fare-btn[aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+  slipIndex = -1;
+  highlight(-1);
+  if (!quiet) slipOpener?.focus({ preventScroll: true });
+  slipOpener = null;
+}
+
 view.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-trip]');
+  const b = e.target.closest('[data-slip]');
   if (!b) return;
-  if (b.getAttribute('aria-pressed') === 'true') drawMap(current.province, current.region, current.rank);
-  else previewTrip(Number(b.dataset.trip), b);
+  const i = Number(b.dataset.slip);
+  if (slipIndex === i) closeSlip();
+  else openSlip(i, b);
 });
+$slip('close').addEventListener('click', () => closeSlip());
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && slipIndex >= 0) closeSlip();
+});
+$slip('trip').addEventListener('click', () => {
+  const i = slipIndex;
+  if (tripIndex === i) return void drawMap(current.province, current.region, current.rank);
+  closeSlip({ quiet: true });
+  previewTrip(i);
+  highlight(-1);
+});
+
+// ------------------------------------------------------------------ header: frosted bar, title on scroll
+
+let titleWatch = null;
+function watchTitle() {
+  titleWatch?.disconnect();
+  const h1 = view.querySelector('h1');
+  headTitle.textContent = current.rank ? shortName(current.rank) : (h1?.textContent ?? '');
+  head.classList.remove('has-title');
+  if (!h1) return;
+  titleWatch = new IntersectionObserver(([e]) => head.classList.toggle('has-title', !e.isIntersecting && e.boundingClientRect.top < headRoom()),
+    { rootMargin: `-${headRoom()}px 0px 0px 0px` });
+  titleWatch.observe(h1);
+}
+const markScrolled = () => head.classList.toggle('is-scrolled', (scrollY || panel.scrollTop) > 4);
+addEventListener('scroll', markScrolled, { passive: true });
+panel.addEventListener('scroll', markScrolled, { passive: true });
 
 connect({
   pos: true,

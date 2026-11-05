@@ -2,16 +2,28 @@
 // phone sends its GPS position every few seconds while the taxi is on a trip. Sharing is
 // always started by the driver, never automatically, and stops with one tap. In the app it
 // carries on with the phone locked, with an Android notification showing the whole time.
-import { $, esc, api, toast, busy, confirmDialog, renderTopbar, requireStaff, connect, clockTime } from './common.js';
+import { $, esc, api, toast, busy, confirmDialog, signOut, requireStaff, connect, clockTime } from './common.js';
 import { CONSENT_VERSION, CONSENT_NOTICE } from './consent.js';
 import { watchLocation, openLocationSettings, BACKGROUND } from './location.js';
 
-const me = await requireStaff(['driver']);
-renderTopbar('/driver.html', me);
+await requireStaff(['driver']);
 
 const app = $('#app');
+const head = $('#sh');
+const headTitle = $('#sh-title');
 const SEND_EVERY_MS = 10_000;
 const STATUS_TEXT = { OFF_DUTY: 'Off duty', ARRIVED: 'At a rank', QUEUED: 'In a queue', LOADING: 'Loading passengers', EN_ROUTE: 'On a trip' };
+const STATUS_TONE = { ARRIVED: 'soon', QUEUED: 'soon', LOADING: 'soon', EN_ROUTE: 'go' };
+
+// Signing out stops sharing first, so the phone never keeps sending for a signed-out driver.
+$('#sign-out').addEventListener('click', async (e) => {
+  if (stopWatch != null) stop();
+  await busy(e.currentTarget, signOut);
+});
+addEventListener('scroll', () => {
+  head.classList.toggle('is-scrolled', scrollY > 4);
+  head.classList.toggle('has-title', scrollY > 64 && !!headTitle.textContent);
+}, { passive: true });
 
 let info = null;
 let taxiStatus = null;
@@ -26,7 +38,7 @@ async function load() {
   try {
     info = await api('/api/driver');
   } catch (err) {
-    app.innerHTML = `<p class="signin-error">${esc(err.message)}</p>`;
+    app.innerHTML = `<p class="dv-error">${esc(err.message)}</p>`;
     return;
   }
   taxiStatus = info.taxi?.status ?? null;
@@ -35,25 +47,37 @@ async function load() {
 
 function render() {
   if (!info.taxi) {
-    app.innerHTML = `<section class="driver-card"><h1>Hello ${esc(info.name)}</h1>
-      <p>Your account is not linked to a taxi yet. Ask an admin at the association office to link you to the taxi you drive.</p></section>`;
+    headTitle.textContent = '';
+    app.innerHTML = `<h1>Hello ${esc(info.name)}</h1>
+      <p>Your account is not linked to a taxi yet. Ask an admin at the association office to link you to the taxi you drive.</p>`;
     return;
   }
   if (!info.consented) return renderNotice();
   const on = stopWatch != null;
-  app.innerHTML = `<section class="driver-card">
-      <p class="small muted">You drive</p>
-      <p class="driver-plate"><span class="plate">${esc(info.taxi.plate)}</span></p>
-      <p class="small muted">Taxi status: <b>${esc(STATUS_TEXT[taxiStatus] ?? 'Unknown')}</b></p>
-      <button class="btn ${on ? 'danger' : 'go'} driver-go" type="button" id="toggle">${on ? 'Stop sharing my location' : 'Start sharing my location'}</button>
-      <p class="driver-state ${esc(state.kind)}" id="state">${on ? esc(state.text || 'Finding your position…') : esc(state.text || 'Not sharing. Nothing is sent until you press Start.')}</p>
-      ${state.denied && BACKGROUND ? '<button class="btn" type="button" id="settings">Open phone settings</button>' : ''}
-      ${on && state.at ? `<p class="small muted">Last sent at ${clockTime(state.at)}${state.accuracy != null ? `, accurate to about ${Math.round(state.accuracy)} m` : ''}.</p>` : ''}
-      ${on ? `<p class="small muted">${BACKGROUND ? 'You can lock your phone or use other apps. A notification shows while sharing is on.' : 'Keep this page open and the screen on while you drive.'} Your position is only used while your taxi is on a trip.</p>` : ''}
+  headTitle.textContent = info.taxi.plate;
+  const message = on ? state.text || 'Finding your position…' : state.text || 'Not sharing. Nothing is sent until you press Start.';
+  app.innerHTML = `<div class="dv-who">
+      <span class="slip-label">You drive</span>
+      <h1 class="dv-plate">${esc(info.taxi.plate)}</h1>
+      <span class="st ${STATUS_TONE[taxiStatus] ?? ''}">${esc(STATUS_TEXT[taxiStatus] ?? 'Status unknown')}</span>
+    </div>
+    <button class="dv-go${on ? ' is-on' : ''}" type="button" id="toggle">${on ? 'Stop sharing my location' : 'Start sharing my location'}</button>
+    <section class="dv-slip slip-paper" aria-label="Location sharing">
+      <span class="slip-label">Location sharing</span>
+      <p class="dv-msg ${esc(state.kind)}">${on ? '<span class="dv-dot" aria-hidden="true"></span>' : ''}${esc(message)}</p>
+      ${state.denied && BACKGROUND ? '<button class="dv-btn" type="button" id="settings">Open phone settings</button>' : ''}
+      <dl class="slip-rows">
+        <dt>Sharing</dt><dd>${on ? 'On' : 'Off'}</dd>
+        <dt>Last sent</dt><dd>${on && state.at ? clockTime(state.at) : '–'}</dd>
+        <dt>Accurate to</dt><dd>${on && state.accuracy != null ? `${Math.round(state.accuracy)} m` : '–'}</dd>
+      </dl>
+      ${on ? `<p class="dv-quiet">${BACKGROUND ? 'You can lock your phone or use other apps. A notification shows while sharing is on.' : 'Keep this page open and the screen on while you drive.'} Your position is only used while your taxi is on a trip.</p>` : ''}
     </section>
-    <p class="small muted driver-foot">You agreed to the location notice on ${new Date(info.consentedAt).toLocaleDateString('en-ZA')}.
-      <button class="btn sm quiet" type="button" id="notice">Read it again</button>
-      <button class="btn sm quiet" type="button" id="withdraw">Withdraw consent</button></p>`;
+    <div class="dv-foot">
+      <p>You agreed to the location notice on ${new Date(info.consentedAt).toLocaleDateString('en-ZA')}.</p>
+      <button class="dv-btn link" type="button" id="notice">Read it again</button>
+      <button class="dv-btn link" type="button" id="withdraw">Withdraw consent</button>
+    </div>`;
   $('#toggle').addEventListener('click', () => (stopWatch == null ? start() : stop()));
   $('#settings')?.addEventListener('click', openLocationSettings);
   $('#notice').addEventListener('click', () => renderNotice(true));
@@ -61,14 +85,13 @@ function render() {
 }
 
 function renderNotice(reading = false) {
-  app.innerHTML = `<section class="driver-card">
-      <h1>Sharing your location</h1>
+  headTitle.textContent = 'Sharing your location';
+  app.innerHTML = `<h1>Sharing your location</h1>
       <p>Before your phone shares anything, here is exactly what happens. Please read it.</p>
-      <dl class="notice">${CONSENT_NOTICE.map(([h, t]) => `<dt>${esc(h)}</dt><dd>${esc(t)}</dd>`).join('')}</dl>
-      ${reading ? '<button class="btn" type="button" id="back">Back</button>' : `
-        <button class="btn go driver-go" type="button" id="agree">I agree: share my location while I drive</button>
-        <p class="small muted">If you don't agree, nothing is shared. Marshals can still record your taxi at the ranks.</p>`}
-    </section>`;
+      <dl class="notice slip-paper">${CONSENT_NOTICE.map(([h, t]) => `<dt>${esc(h)}</dt><dd>${esc(t)}</dd>`).join('')}</dl>
+      ${reading ? '<button class="dv-btn" type="button" id="back">Back</button>' : `
+        <button class="dv-go" type="button" id="agree">I agree: share my location while I drive</button>
+        <p class="dv-quiet">If you don't agree, nothing is shared. Marshals can still record your taxi at the ranks.</p>`}`;
   $('#back')?.addEventListener('click', render);
   $('#agree')?.addEventListener('click', async (e) => {
     await busy(e.target, async () => {

@@ -1,22 +1,29 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Driver | Danki Driver</title>
-  <meta name="theme-color" content="#262a7d">
+  <meta name="theme-color" content="#fbfbf8">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/img/icon-192.png" type="image/png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/css/app.css">
-  <script>try{var t=localStorage.getItem('bta:theme');if(t)document.documentElement.dataset.theme=JSON.parse(t)}catch(e){}</script>
+  <link rel="preload" href="/fonts/spline-sans-mono-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/css/slip-base.css">
+  <link rel="stylesheet" href="/css/driver.css">
 </head>
-<body>
-  <header id="topbar"></header>
-  <main class="driver" id="app" aria-live="polite">
-    <p class="muted">Loading…</p>
+<body class="dv">
+  <header class="sh" id="sh">
+    <div class="sh-in">
+      <span class="sh-word">Danki <b>Driver</b></span>
+      <span class="sh-title" id="sh-title" aria-hidden="true"></span>
+      <span class="sh-end">
+        <button class="sh-btn" type="button" id="sign-out">Sign out</button>
+        <img src="/img/bta-logo.png" width="36" height="36" alt="Benoni Taxi Association, SANTACO">
+      </span>
+    </div>
+  </header>
+  <main class="dv-main" id="app" aria-live="polite">
+    <p class="dv-quiet">Loading…</p>
   </main>
   <script type="module" src="/js/driver.js"></script>
 </body>

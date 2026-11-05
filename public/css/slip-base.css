@@ -1,0 +1,92 @@
+/* Danki Driver look, shared by the passenger and driver screens.
+   Every answer is a printed slip, like the airtime and till slips commuters carry: thermal
+   white, true ink, one BTA blue, figures in a mono face. The header is a frosted bar that
+   floats over the content and takes the page's title once the big title scrolls under it. */
+
+@font-face {
+  font-family: 'Spline Sans Mono';
+  src: url('../fonts/spline-sans-mono-latin-400-normal.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Spline Sans Mono';
+  src: url('../fonts/spline-sans-mono-latin-600-normal.woff2') format('woff2');
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+
+:root {
+  --paper: #fbfbf8;
+  --paper-2: #f0f0eb;
+  --white: #ffffff;
+  --ink: #111214;
+  --ink-2: #464952;
+  --rule: #c4c5cb;
+  --blue: #262a7d;           /* the BTA badge */
+  --blue-wash: #e8e9f6;
+  --go: #0b6e35;
+  --soon: #8a5200;
+  --stop: #a8231c;
+  --bar: rgba(251, 251, 248, 0.74);
+  --head: 56px;
+  --ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --mono: 'Spline Sans Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  color-scheme: light;
+}
+
+::selection { background: var(--blue); color: var(--white); }
+.mono { font-family: var(--mono); font-feature-settings: 'tnum' 1, 'zero' 1; }
+
+/* ------------------------------------------------------------------ frosted header */
+
+.sh {
+  position: sticky; top: 0; z-index: 1000;
+  padding-top: env(safe-area-inset-top);
+  background: var(--bar);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: 0 0.5px 0 transparent;
+  transition: box-shadow 0.25s ease-out, background-color 0.25s ease-out;
+}
+.sh.is-scrolled { box-shadow: 0 0.5px 0 rgba(17, 18, 20, 0.35); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sh { background: rgba(251, 251, 248, 0.96); }
+}
+.sh-in { position: relative; display: flex; align-items: center; gap: 12px; height: var(--head); padding: 0 16px; }
+.sh-word { font-family: var(--ui); font-weight: 700; font-size: 19px; letter-spacing: -0.01em; color: var(--ink); text-decoration: none; white-space: nowrap; transition: opacity 0.2s ease-out; }
+.sh-word b { font-weight: 400; color: var(--ink-2); }
+.sh-title {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; max-width: calc(100% - 150px);
+  font-weight: 600; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  opacity: 0; transition: opacity 0.2s ease-out; pointer-events: none;
+}
+.sh.has-title .sh-title { opacity: 1; }
+.sh.has-title .sh-word { opacity: 0; }
+.sh-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.sh-end img { display: block; width: 36px; height: 36px; border-radius: 50%; background: var(--white); box-shadow: 0 0 0 1px rgba(17, 18, 20, 0.12); }
+.sh-btn { font: 600 15px var(--ui); color: var(--blue); background: none; border: 0; min-height: 44px; padding: 0 6px; cursor: pointer; }
+
+/* ------------------------------------------------------------------ the slip */
+
+.slip-paper {
+  background: var(--white); color: var(--ink);
+  box-shadow: 0 2px 12px rgba(17, 18, 20, 0.12);
+  /* the perforated top edge of a slip torn off the roll */
+  -webkit-mask: radial-gradient(circle 5px at 9px 0, #0000 98%, #000) 0 0 / 18px 100% repeat-x;
+          mask: radial-gradient(circle 5px at 9px 0, #0000 98%, #000) 0 0 / 18px 100% repeat-x;
+}
+.slip-label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.slip-rows { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; margin: 0; font-size: 15px; }
+.slip-rows dt { color: var(--ink-2); }
+.slip-rows dd { margin: 0; font-family: var(--mono); text-align: right; }
+
+/* status: a dot and words, never colour alone */
+.st { display: inline-flex; align-items: center; gap: 7px; font-family: var(--ui); font-weight: 600; }
+.st::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.st.go { color: var(--go); }
+.st.soon { color: var(--soon); }
+.st.stop { color: var(--stop); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sh, .sh-title, .sh-word { transition: none; }
+}

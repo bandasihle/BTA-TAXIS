@@ -346,7 +346,7 @@ const PAGES = {
 };
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpeg': 'image/jpeg', '.jpg': 'image/jpeg',
+  '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.jpeg': 'image/jpeg', '.jpg': 'image/jpeg',
 };
 
 function serveFile(res, base, rel) {
@@ -396,7 +396,7 @@ const CSP = [
   "default-src 'self'",
   "script-src 'self' 'sha256-fMGC9cq7HoMARjUnLNzi6WaLxfVp0aITKZ2WWRoXCRY='",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  'font-src https://fonts.gstatic.com',
+  "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: https://tile.openstreetmap.org",
   "connect-src 'self'",
   "object-src 'none'",
