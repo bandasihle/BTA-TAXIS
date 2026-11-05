@@ -123,7 +123,7 @@ Admins link a driver to a taxi on `/users`.
 
 ### Look
 
-Danki Driver (`/`) and the driver screen share `public/css/slip-base.css`: a light "till slip" look (thermal white, ink, one BTA blue, figures in Spline Sans Mono) under a frosted header that takes the page title once the big title scrolls under it. Tapping a destination prints its slip: fare, hours, what is running now and the taxi loading at the rank, with the trip preview. The font is bundled in `public/fonts/` (SIL Open Font License, see the licence file there), so these pages load no third-party fonts. The staff screens keep `app.css`.
+Danki Driver (`/`), the welcome screen and the driver screen share `public/css/slip-base.css`. Colours come from the Dankie Driver badge (`docs/dankie-driver-logo.jpeg`): royal blue, navy and the red and white of the taxi livery. Answers are printed slips with figures in Spline Sans Mono under a frosted blue header with a red and white livery stripe that takes the page title once the big title scrolls under it. Tapping a destination prints its slip: fare, hours, what is running now and the taxi loading at the rank, with the trip preview. The font is bundled in `public/fonts/` (SIL Open Font License, see the licence file there), so these pages load no third-party fonts. The staff screens keep `app.css`.
 
 ## Layout
 

@@ -16,8 +16,8 @@ button { font: inherit; color: inherit; }
 
 /* ---- who and what */
 .dv-plate {
-  align-self: flex-start; display: inline-block; padding: 6px 14px 4px;
-  background: var(--white); border: 2.5px solid var(--ink); border-radius: 6px;
+  align-self: flex-start; display: inline-block; padding: 6px 14px 9px;
+  background: var(--white); border: 2.5px solid var(--ink); border-radius: 6px; box-shadow: inset 0 -4px 0 var(--red);
   font: 600 32px/1.1 var(--mono); letter-spacing: 0.06em; white-space: nowrap;
 }
 .dv-who { display: flex; flex-direction: column; gap: 10px; }
@@ -25,11 +25,11 @@ button { font: inherit; color: inherit; }
 /* ---- the switch */
 .dv-go {
   display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 64px;
-  border: 0; border-radius: 14px; background: var(--ink); color: var(--white);
+  border: 0; border-radius: 14px; background: var(--blue); color: var(--white); box-shadow: 0 6px 16px rgba(1, 68, 183, 0.28);
   font-size: 19px; font-weight: 700; cursor: pointer; transition: transform 0.12s var(--ease);
 }
 .dv-go:active { transform: scale(0.985); }
-.dv-go.is-on { background: var(--white); color: var(--stop); box-shadow: inset 0 0 0 2.5px var(--stop); }
+.dv-go.is-on { background: var(--white); color: var(--red); box-shadow: inset 0 0 0 2.5px var(--red); }
 .dv-go:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ---- the live slip */
@@ -67,7 +67,7 @@ dialog::backdrop { background: rgba(17, 18, 20, 0.45); }
 .dialog-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
 .dialog-actions .btn { min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px; font-weight: 600; cursor: pointer; background: var(--paper-2); }
 .dialog-actions .btn.quiet { background: none; color: var(--blue); }
-.dialog-actions .btn.primary { background: var(--ink); color: var(--white); }
+.dialog-actions .btn.primary { background: var(--blue); color: var(--white); }
 .dialog-actions .btn.danger { background: var(--stop); color: var(--white); }
 
 @media (prefers-reduced-motion: reduce) {

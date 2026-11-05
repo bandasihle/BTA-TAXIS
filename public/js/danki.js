@@ -40,7 +40,10 @@ const shortName = (rank) => rank.name.replace(/ Taxi Rank$/, '');
 
 // ------------------------------------------------------------------ map
 
-const map = L.map('map', { zoomControl: true, zoomSnap: 0.25, attributionControl: true });
+// Danki Driver covers Gauteng for now: the map stays on the province and the list starts there.
+const HOME = 'gauteng';
+const GAUTENG = L.latLngBounds([-27.05, 26.95], [-25.0, 29.25]);
+const map = L.map('map', { zoomControl: true, zoomSnap: 0.25, attributionControl: true, maxBounds: GAUTENG, maxBoundsViscosity: 0.9, minZoom: 8 });
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 18,
   className: 'dk-tiles',
@@ -103,7 +106,7 @@ function drawMap(province, region, rank) {
   } else if (province) {
     for (const r of province.regions) pin(r.at, { label: r.name, dim: !r.ranks.length, link: href(province.id, r.id) });
     if (!province.regions.length) pin(province.at, { label: province.name, tag: `<em>${province.code}</em>`, dim: true });
-    fit(province.regions.length ? province.regions.map((r) => r.at) : [province.at], 7);
+    fit(province.regions.length ? province.regions.map((r) => r.at) : [province.at], 10);
   } else {
     for (const p of tree) pin(p.at, { label: p.name, tag: `<em>${p.code}</em>`, dim: !p.regions.length, link: href(p.id) });
     fit(tree.map((p) => p.at), 6);
@@ -182,11 +185,11 @@ function fares(province, region, rank) {
 const hoursLabel = (d) => `${timeLabel(d.from)} – ${timeLabel(d.until)}`;
 
 function crumbs(province, region, rank) {
-  const parts = [['Provinces', '#/']];
+  const parts = [];
   if (province) parts.push([province.name, href(province.id)]);
   if (region) parts.push([region.name, href(province.id, region.id)]);
   if (rank) parts.push([shortName(rank), null]);
-  if (parts.length === 1) return '';
+  if (parts.length <= 1) return '';
   return `<ol>${parts
     .map(([name, link], i) => (i === parts.length - 1 ? `<li><span aria-current="page">${esc(name)}</span></li>` : `<li><a href="${link}">${esc(name)}</a></li>`))
     .join('')}</ol>`;
@@ -198,6 +201,10 @@ let first = true;
 function render() {
   const ids = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
   const { province, region, rank } = lookup(ids, tree);
+  if (province?.id !== HOME) {
+    location.replace(href(HOME));
+    return;
+  }
 
   // An unknown link falls back to the deepest part that exists (once the ranks are loaded,
   // so a rank link opened with no signal waits instead of losing its place).

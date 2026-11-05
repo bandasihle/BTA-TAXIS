@@ -78,7 +78,7 @@ export function renderTopbar(active, user) {
       ${user ? `<span class="who small">${esc(user.name)}</span><button class="btn sm quiet" id="sign-out" type="button">Sign out</button>` : ''}
       <button class="btn sm quiet" id="menu-btn" type="button" aria-haspopup="dialog">Menu</button>
       <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch between light and dark">${THEME_ICON}</button>
-      <a class="brand-logo" href="/" title="Danki Driver, the passenger app"><img src="/img/bta-logo.png" width="40" height="40" alt="Benoni Taxi Association"></a>
+      <a class="brand-logo" href="/" title="Danki Driver, the passenger app"><img src="/img/dankie-logo-128.jpg" width="40" height="40" alt="Dankie Driver, Benoni Taxi Association" style="border-radius:50%"></a>
     </div>`;
   $('#theme-toggle').addEventListener('click', toggleTheme);
   $('#sign-out')?.addEventListener('click', signOut);

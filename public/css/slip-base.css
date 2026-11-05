@@ -14,19 +14,25 @@
   font-weight: 600; font-style: normal; font-display: swap;
 }
 
+/* Colours come from the Dankie Driver badge: its royal blue, the navy of its lettering, and
+   the red and white of the taxi's livery stripe. Navy stands in for black everywhere. */
 :root {
-  --paper: #fbfbf8;
-  --paper-2: #f0f0eb;
+  --paper: #f4f7fd;
+  --paper-2: #e6ecf8;
   --white: #ffffff;
-  --ink: #111214;
-  --ink-2: #464952;
-  --rule: #c4c5cb;
-  --blue: #262a7d;           /* the BTA badge */
-  --blue-wash: #e8e9f6;
+  --ink: #0c1a4b;            /* badge navy */
+  --ink-2: #45527a;
+  --rule: #c2cbe2;
+  --blue: #0144b7;           /* badge royal blue */
+  --blue-deep: #022d84;
+  --blue-wash: #e2ebfd;
+  --red: #d71f2b;            /* livery red */
+  --red-wash: #fde8ea;
   --go: #0b6e35;
   --soon: #8a5200;
-  --stop: #a8231c;
-  --bar: rgba(251, 251, 248, 0.74);
+  --stop: #c01822;
+  --bar: rgba(1, 68, 183, 0.86);
+  --livery: linear-gradient(var(--red) 0 3px, var(--white) 3px 5px);
   --head: 56px;
   --ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   --mono: 'Spline Sans Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
@@ -45,37 +51,40 @@
   background: var(--bar);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
-  box-shadow: 0 0.5px 0 transparent;
+  color: var(--white);
   transition: box-shadow 0.25s ease-out, background-color 0.25s ease-out;
 }
-.sh.is-scrolled { box-shadow: 0 0.5px 0 rgba(17, 18, 20, 0.35); }
+/* the taxi's livery: a red and white pinstripe along the bottom of the blue bar */
+.sh::after { content: ''; position: absolute; left: 0; right: 0; bottom: -5px; height: 5px; background: var(--livery); pointer-events: none; }
+.sh.is-scrolled { box-shadow: 0 6px 18px rgba(2, 45, 132, 0.22); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .sh { background: rgba(251, 251, 248, 0.96); }
+  .sh { background: rgba(1, 68, 183, 0.97); }
 }
 .sh-in { position: relative; display: flex; align-items: center; gap: 12px; height: var(--head); padding: 0 16px; }
-.sh-word { font-family: var(--ui); font-weight: 700; font-size: 19px; letter-spacing: -0.01em; color: var(--ink); text-decoration: none; white-space: nowrap; transition: opacity 0.2s ease-out; }
-.sh-word b { font-weight: 400; color: var(--ink-2); }
+.sh-word { font-family: var(--ui); font-weight: 800; font-size: 19px; letter-spacing: -0.01em; color: var(--white); text-decoration: none; white-space: nowrap; transition: opacity 0.2s ease-out; }
+.sh-word b { font-weight: 400; color: #c9d8ff; }
 .sh-title {
-  position: absolute; left: 50%; top: 50%; translate: -50% -50%; max-width: calc(100% - 150px);
-  font-weight: 600; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; max-width: calc(100% - 170px);
+  font-weight: 700; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   opacity: 0; transition: opacity 0.2s ease-out; pointer-events: none;
 }
 .sh.has-title .sh-title { opacity: 1; }
 .sh.has-title .sh-word { opacity: 0; }
 .sh-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.sh-end img { display: block; width: 36px; height: 36px; border-radius: 50%; background: var(--white); box-shadow: 0 0 0 1px rgba(17, 18, 20, 0.12); }
-.sh-btn { font: 600 15px var(--ui); color: var(--blue); background: none; border: 0; min-height: 44px; padding: 0 6px; cursor: pointer; }
+.sh-end img { display: block; width: 38px; height: 38px; border-radius: 50%; box-shadow: 0 0 0 2px var(--white); }
+.sh-btn { font: 600 15px var(--ui); color: var(--white); background: none; border: 0; min-height: 44px; padding: 0 6px; cursor: pointer; }
+.sh :focus-visible { outline-color: var(--white); }
 
 /* ------------------------------------------------------------------ the slip */
 
 .slip-paper {
   background: var(--white); color: var(--ink);
-  box-shadow: 0 2px 12px rgba(17, 18, 20, 0.12);
+  box-shadow: 0 4px 18px rgba(2, 45, 132, 0.12);
   /* the perforated top edge of a slip torn off the roll */
   -webkit-mask: radial-gradient(circle 5px at 9px 0, #0000 98%, #000) 0 0 / 18px 100% repeat-x;
           mask: radial-gradient(circle 5px at 9px 0, #0000 98%, #000) 0 0 / 18px 100% repeat-x;
 }
-.slip-label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.slip-label { font-family: var(--mono); font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--red); }
 .slip-rows { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; margin: 0; font-size: 15px; }
 .slip-rows dt { color: var(--ink-2); }
 .slip-rows dd { margin: 0; font-family: var(--mono); text-align: right; }
