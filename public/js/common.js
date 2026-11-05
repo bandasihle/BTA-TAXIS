@@ -70,25 +70,10 @@ export function renderTopbar(active) {
       <span class="brand-name">Benoni Taxi Association<small>Rank tracker</small></span></a>
     <nav class="nav" aria-label="Screens">${NAV.map(([href, label]) => `<a href="${href}"${href === active ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
     <div class="topbar-tools">
-      <label class="switch" title="Simulated marshals load and send off taxis by themselves"><input type="checkbox" id="demo-toggle"><span>Demo mode</span></label>
       <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch between light and dark">${THEME_ICON}</button>
       <a class="brand-logo" href="/" title="Danki Driver, the passenger app"><img src="/img/bta-logo.png" width="40" height="40" alt="Benoni Taxi Association"></a>
     </div>`;
   $('#theme-toggle').addEventListener('click', toggleTheme);
-  $('#demo-toggle').addEventListener('change', async (e) => {
-    try {
-      const r = await api('/api/demo', { method: 'POST', body: { on: e.target.checked } });
-      toast(r.message);
-    } catch (err) {
-      e.target.checked = !e.target.checked;
-      toast(err.message, 'error');
-    }
-  });
-}
-
-export function syncDemo(meta) {
-  const box = $('#demo-toggle');
-  if (box) box.checked = !!meta.demo;
 }
 
 // ------------------------------------------------------------------ server time, API, live updates
@@ -169,8 +154,11 @@ export async function flushOutbox() {
   if (sent) toast(`Sent ${sent} saved tap${sent === 1 ? '' : 's'}.`);
 }
 
-/** Opens the live stream. Calls onSnapshot with the full state, onPos with positions (when pos is true). */
-export function connect({ pos = false, onSnapshot, onPos }) {
+/**
+ * Opens the live stream. Calls onSnapshot with the state, onPos with positions (when pos is true).
+ * Staff screens get the full state; everyone else gets the public one, with no personal details.
+ */
+export function connect({ pos = false, staff = false, onSnapshot, onPos }) {
   const banner = document.createElement('div');
   banner.className = 'banner offline';
   banner.setAttribute('role', 'status');
@@ -178,12 +166,15 @@ export function connect({ pos = false, onSnapshot, onPos }) {
   banner.textContent = 'Connection lost. Reconnecting… what you see may be out of date.';
   document.getElementById('topbar')?.after(banner);
 
-  const es = new EventSource(`${API_BASE}/api/stream${pos ? '?pos=1' : ''}`);
+  const params = new URLSearchParams();
+  if (pos) params.set('pos', '1');
+  if (staff) params.set('staff', '1');
+  const query = params.toString();
+  const es = new EventSource(`${API_BASE}/api/stream${query ? `?${query}` : ''}`);
   es.addEventListener('snapshot', (e) => {
     banner.hidden = true;
     const snap = JSON.parse(e.data);
     clock.offset = snap.meta.serverTime - Date.now();
-    syncDemo(snap.meta);
     onSnapshot(index(snap));
     flushOutbox();
   });
@@ -350,5 +341,5 @@ export function registerServiceWorker() {
   }
 }
 
-export const FOOTER = `Demo data: taxis, drivers, marshals and routes are made up. Rank positions come from
-  <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors (ODbL); pins marked "unverified" need checking.`;
+export const FOOTER = `Rank positions come from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>
+  contributors (ODbL); pins marked "unverified" need checking.`;

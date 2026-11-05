@@ -2,9 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { checkTransition, STATUS, TransitionError } from '../server/state.js';
 import { openDb } from '../server/db.js';
-import { createStore } from '../server/store.js';
+import { createStore, expectedTripMs } from '../server/store.js';
 import { seed, RANKS, ROUTE_PAIRS } from '../server/seed.js';
-import { SimulatedPositionSource } from '../server/sim.js';
+import { RankPositionSource } from '../server/positions.js';
+import { lineLength } from '../server/geo.js';
 
 const taxi = (status, extra = {}) => ({ plate: 'AB 12 CD GP', capacity: 15, status, rank_id: 1, ...extra });
 const route = { from_rank_id: 1, to_rank_id: 2 };
@@ -49,67 +50,104 @@ test('only taxis on the road can arrive; taxis on the road cannot go off duty', 
 
 function freshStore() {
   let t = 1_800_000_000_000;
-  const store = createStore(openDb(':memory:'), { now: () => t, random: () => 0.5, simScale: 20 });
+  const store = createStore(openDb(':memory:'), { now: () => t });
   seed(store);
   return { store, advance: (ms) => (t += ms) };
 }
 
-test('seed loads ranks, two-way routes and taxis in every state', () => {
+const rankNamed = (store, name) => store.snapshot().ranks.find((r) => r.name === name);
+
+/** A registered taxi off duty at Etwatwa Las Vegas, with the route to Daveyton. */
+function taxiAtEtwatwa(store, plate = 'AB 12 CD GP') {
+  const etwatwa = rankNamed(store, 'Etwatwa Las Vegas');
+  const daveyton = rankNamed(store, 'Daveyton');
+  const route = store.snapshot().routes.find((r) => r.fromRankId === etwatwa.id && r.toRankId === daveyton.id);
+  const { id } = store.createTaxi({ plate, homeRankId: etwatwa.id, driverName: 'Test Driver', ownerName: 'Test Owner' });
+  return { id, rankId: etwatwa.id, route };
+}
+
+test('seed loads only ranks and two-way routes: no taxis, drivers or marshals', () => {
   const { store } = freshStore();
   const s = store.snapshot();
   assert.equal(s.ranks.length, RANKS.length);
   assert.equal(s.routes.length, ROUTE_PAIRS.length * 2);
-  assert.equal(s.taxis.length, 30);
-  for (const st of Object.values(STATUS)) assert.ok(s.taxis.some((t) => t.status === st), `no taxi is ${st}`);
+  assert.equal(s.taxis.length, 0);
+  assert.equal(s.marshals.length, 0);
+  assert.equal(s.events.length, 0);
 });
 
-test('full journey: check in, load, depart, drive, arrive, queue again', () => {
+test('seed refuses to run on a database that already has ranks', () => {
+  const { store } = freshStore();
+  const { id } = taxiAtEtwatwa(store);
+  assert.throws(() => seed(store), /empty database/);
+  assert.ok(store.snapshot().taxis.some((t) => t.id === id), 'nothing was wiped');
+});
+
+test('full journey: check in, load, depart, arrive, queue again', () => {
   const { store, advance } = freshStore();
-  const s = store.snapshot();
-  const t = s.taxis.find((x) => x.status === 'OFF_DUTY');
-  const route = s.routes.find((r) => r.fromRankId === t.rankId);
+  const t = taxiAtEtwatwa(store);
+  const { route } = t;
 
   store.act({ type: 'checkIn', taxiId: t.id, rankId: t.rankId, routeId: route.id });
-  // put it at the front so the queue order is easy to assert
-  while (store.snapshot().queue.find((q) => q.taxiId === t.id).position > 1) store.act({ type: 'move', taxiId: t.id, dir: 'up' });
   for (let i = 0; i < 3; i++) store.act({ type: 'seat', taxiId: t.id, delta: 1 });
   assert.equal(store.snapshot().queue.find((q) => q.taxiId === t.id).seats, 3);
+
+  const source = new RankPositionSource(store);
+  assert.ok(source.getPositions().some((p) => p.id === t.id && p.status === 'LOADING' && p.rankId === t.rankId));
 
   store.act({ type: 'depart', taxiId: t.id });
   const after = store.snapshot();
   assert.equal(after.taxis.find((x) => x.id === t.id).status, 'EN_ROUTE');
   assert.ok(!after.queue.some((q) => q.taxiId === t.id));
-  const positionsInRoute = after.queue.filter((q) => q.routeId === route.id).map((q) => q.position);
-  assert.deepEqual(positionsInRoute, positionsInRoute.map((_, i) => i + 1), 'queue positions stay 1..n');
+  const trip = after.trips.find((x) => x.taxiId === t.id);
+  assert.equal(trip.durationMs, expectedTripMs(lineLength(route.polyline)), 'trip time is real time, not sped up');
+  assert.ok(!source.getPositions().some((p) => p.id === t.id), 'no made-up position on the road');
 
-  const source = new SimulatedPositionSource(store);
-  assert.ok(source.getPositions().some((p) => p.id === t.id && p.status === 'EN_ROUTE'));
-  assert.ok(!source.dueArrivals().includes(t.id));
-  advance(60 * 60 * 1000);
-  assert.ok(source.dueArrivals().includes(t.id));
-
-  store.act({ type: 'arrive', taxiId: t.id, by: 'simulator' });
+  advance(30 * 60 * 1000);
+  store.act({ type: 'arrive', taxiId: t.id });
   const arrived = store.snapshot().taxis.find((x) => x.id === t.id);
   assert.equal(arrived.status, 'ARRIVED');
   assert.equal(arrived.rankId, route.toRankId);
 
-  const back = store.snapshot().routes.find((r) => r.fromRankId === route.toRankId);
+  const back = store.snapshot().routes.find((r) => r.fromRankId === route.toRankId && r.toRankId === t.rankId);
   store.act({ type: 'checkIn', taxiId: t.id, rankId: route.toRankId, routeId: back.id });
   assert.equal(store.snapshot().taxis.find((x) => x.id === t.id).status, 'QUEUED');
 });
 
+test('queue positions stay 1..n when a taxi leaves the middle', () => {
+  const { store } = freshStore();
+  const taxis = ['AA 11 AA GP', 'BB 22 BB GP', 'CC 33 CC GP'].map((plate) => taxiAtEtwatwa(store, plate));
+  for (const t of taxis) store.act({ type: 'checkIn', taxiId: t.id, rankId: t.rankId, routeId: t.route.id });
+  store.act({ type: 'depart', taxiId: taxis[1].id });
+  const queue = store.snapshot().queue.filter((q) => q.routeId === taxis[0].route.id);
+  assert.deepEqual(queue.map((q) => [q.taxiId, q.position]), [[taxis[0].id, 1], [taxis[2].id, 2]]);
+});
+
 test('illegal moves leave the database unchanged', () => {
   const { store } = freshStore();
-  const t = store.snapshot().taxis.find((x) => x.status === 'OFF_DUTY');
+  const t = taxiAtEtwatwa(store);
   const before = JSON.stringify(store.snapshot().queue);
   assert.throws(() => store.act({ type: 'depart', taxiId: t.id }), /before it departs/);
   assert.equal(JSON.stringify(store.snapshot().queue), before);
 });
 
+test('the public snapshot has no driver, owner or marshal details and no event log', () => {
+  const { store } = freshStore();
+  const t = taxiAtEtwatwa(store);
+  store.act({ type: 'checkIn', taxiId: t.id, rankId: t.rankId, routeId: t.route.id });
+  const pub = store.publicSnapshot();
+  const text = JSON.stringify(pub);
+  assert.ok(!text.includes('Test Driver') && !text.includes('Test Owner'));
+  assert.deepEqual(pub.events, []);
+  assert.deepEqual(pub.marshals, []);
+  assert.deepEqual(Object.keys(pub.taxis[0]).sort(), ['capacity', 'id', 'plate', 'rankId', 'status', 'tripId']);
+  assert.ok(pub.queue.some((q) => q.taxiId === t.id), 'passengers still see the loading taxi');
+});
+
 test('new ranks and routes are available straight away', () => {
   const { store } = freshStore();
   const { id } = store.createRank({ name: 'Etwatwa Ext 9', lat: -26.11, lng: 28.46 });
-  const daveyton = store.snapshot().ranks.find((r) => r.name === 'Daveyton');
+  const daveyton = rankNamed(store, 'Daveyton');
   store.createRoute({ fromRankId: id, toRankId: daveyton.id, bothWays: true });
   const s = store.snapshot();
   assert.ok(s.routes.some((r) => r.fromRankId === id && r.toRankId === daveyton.id));
@@ -119,7 +157,7 @@ test('new ranks and routes are available straight away', () => {
 
 test('a busy rank cannot be deleted', () => {
   const { store } = freshStore();
-  const s = store.snapshot();
-  const busy = s.taxis.find((t) => t.status === 'QUEUED').rankId;
-  assert.throws(() => store.deleteRank(busy), /still has/);
+  const t = taxiAtEtwatwa(store);
+  store.act({ type: 'checkIn', taxiId: t.id, rankId: t.rankId, routeId: t.route.id });
+  assert.throws(() => store.deleteRank(t.rankId), /still has/);
 });

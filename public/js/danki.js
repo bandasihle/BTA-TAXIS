@@ -3,7 +3,7 @@
 // hash (#/gauteng/benoni-ekurhuleni/barcelona), so the phone's back button and shared
 // links work.
 //
-// On a rank's screen it also shows the tracker's (simulated) taxis: which destinations are
+// On a rank's screen it also shows the tracker's live taxis: which destinations are
 // running right now, the taxi loading for each one, taxis driving on the map, and a trip
 // preview. Passengers never see queue numbers.
 
@@ -129,15 +129,19 @@ function ranks(province, region) {
     ${list(region.ranks.map((k) => ({
       link: href(province.id, region.id, k.id),
       name: k.name,
-      sub: plural(k.destinations.length, 'destination'),
+      sub: k.destinations.length ? plural(k.destinations.length, 'destination') : 'No fares yet',
     })))}`;
 }
 
 function fares(province, region, rank) {
   const from = shortName(rank);
+  if (!rank.destinations.length) {
+    return `<h1>${esc(rank.name)}</h1>
+      <p class="dk-lede">${esc(region.name)}, ${esc(province.name)}</p>
+      ${empty(`The association has not added destinations and prices for ${from} yet.`)}`;
+  }
   return `<h1>${esc(rank.name)}</h1>
     <p class="dk-lede">${esc(region.name)}, ${esc(province.name)}</p>
-    ${rank.sample ? '<p class="dk-note">Sample destinations and prices. BTA still needs to confirm them for this rank.</p>' : ''}
     <ul class="dk-fares" aria-label="Taxis from ${esc(from)}">
       ${rank.destinations.map((d, i) => `
         <li class="dk-fare" data-i="${i}">
@@ -153,7 +157,6 @@ function fares(province, region, rank) {
           <button class="dk-preview" type="button" data-trip="${i}" aria-pressed="false">Preview the trip</button>
         </li>`).join('')}
     </ul>
-    <p class="dk-small">Taxis loading and on the road are a simulation for this prototype.</p>
     ${rank.exact ? '' : '<p class="dk-small">The pin shows the area. The exact rank spot still needs to be marked.</p>'}`;
 }
 
@@ -281,8 +284,7 @@ function drawTaxis() {
     const w = p.status === 'EN_ROUTE' && wanted.get(p.routeId);
     if (!w) continue;
     seen.add(p.id);
-    // the simulation runs faster than real time; show the real-world minutes
-    const mins = Math.max(1, Math.round((p.etaMs * (snap?.meta.simScale ?? 1)) / 60_000));
+    const mins = Math.max(1, Math.round(p.etaMs / 60_000));
     let m = taxiMarkers.get(p.id);
     if (!m) {
       m = L.marker([p.lat, p.lng], {

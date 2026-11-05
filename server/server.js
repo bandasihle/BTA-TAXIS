@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { openDb, DEFAULT_DB } from './db.js';
 import { createStore, HttpError } from './store.js';
-import { SimulatedPositionSource, Simulator } from './sim.js';
+import { RankPositionSource } from './positions.js';
 import { seed } from './seed.js';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -12,11 +12,10 @@ const LEAFLET = path.join(ROOT, 'node_modules', 'leaflet', 'dist');
 const PORT = Number(process.env.PORT || 3000);
 
 const db = openDb(process.env.DB_FILE || DEFAULT_DB);
-const store = createStore(db, { demo: process.env.DEMO !== '0', simScale: Number(process.env.SIM_SCALE || 20), fetchRoads: true });
+const store = createStore(db, { fetchRoads: true });
 if (store.isEmpty()) seed(store);
 
-const positions = new SimulatedPositionSource(store);
-new Simulator(store, positions).start();
+const positions = new RankPositionSource(store);
 
 // ------------------------------------------------------------------ live updates (SSE)
 
@@ -32,8 +31,9 @@ store.on('change', () => {
   pending = setTimeout(() => {
     pending = null;
     if (!clients.size) return;
-    const snap = store.snapshot();
-    for (const c of clients) send(c.res, 'snapshot', snap);
+    const full = store.snapshot();
+    const pub = store.publicSnapshot();
+    for (const c of clients) send(c.res, 'snapshot', c.staff ? full : pub);
   }, 150);
 });
 
@@ -56,9 +56,10 @@ function stream(req, res, url) {
     'X-Accel-Buffering': 'no',
   });
   res.write('retry: 3000\n\n');
-  const client = { res, pos: url.searchParams.get('pos') === '1' };
+  // TODO(auth): staff=1 must require a signed-in staff session.
+  const client = { res, pos: url.searchParams.get('pos') === '1', staff: url.searchParams.get('staff') === '1' };
   clients.add(client);
-  send(res, 'snapshot', store.snapshot());
+  send(res, 'snapshot', client.staff ? store.snapshot() : store.publicSnapshot());
   if (client.pos) send(res, 'pos', positions.getPositions());
   req.on('close', () => clients.delete(client));
 }
@@ -100,7 +101,7 @@ async function api(req, res, url) {
   let match;
 
   if (m === 'GET' && p === '/api/stream') return stream(req, res, url);
-  if (m === 'GET' && p === '/api/snapshot') return json(res, 200, store.snapshot());
+  if (m === 'GET' && p === '/api/snapshot') return json(res, 200, store.publicSnapshot());
   if (m === 'GET' && p === '/api/positions') return json(res, 200, positions.getPositions());
   if (m === 'POST' && p === '/api/action') return json(res, 200, store.act(await readBody(req)));
   if (m === 'POST' && p === '/api/taxis') return json(res, 201, store.createTaxi(await readBody(req)));
@@ -112,11 +113,6 @@ async function api(req, res, url) {
   }
   if (m === 'POST' && p === '/api/routes') return json(res, 201, store.createRoute(await readBody(req)));
   if (m === 'DELETE' && (match = p.match(/^\/api\/routes\/(\d+)$/))) return json(res, 200, store.deleteRoute(match[1]));
-  if (m === 'POST' && p === '/api/demo') return json(res, 200, store.setDemo((await readBody(req)).on));
-  if (m === 'POST' && p === '/api/reset') {
-    seed(store);
-    return json(res, 200, { message: 'Demo data reloaded' });
-  }
   throw new HttpError(404, 'No such API endpoint.');
 }
 
@@ -191,5 +187,4 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Benoni Taxi Association rank tracker running on http://localhost:${PORT}`);
-  console.log(`Demo mode ${store.settings.demo ? 'on' : 'off'}, simulated taxis drive ${store.settings.simScale}x faster than real time.`);
 });

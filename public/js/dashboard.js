@@ -1,7 +1,7 @@
 /* global L */
 import {
-  $, $$, esc, local, renderTopbar, connect, api, toast, plate, mark, seatBar, busSeats, eta, ago, clockTime, clock,
-  whereIs, confirmDialog, registerServiceWorker, STATUS_LABEL, STATUS_ORDER,
+  $, $$, esc, local, renderTopbar, connect, api, plate, mark, seatBar, busSeats, eta, ago, clockTime, clock,
+  whereIs, registerServiceWorker, STATUS_LABEL, STATUS_ORDER,
 } from './common.js';
 
 renderTopbar('/dashboard.html');
@@ -357,27 +357,15 @@ $('#panel-body').addEventListener('keydown', (e) => {
   }
 });
 
-$('#reset').addEventListener('click', async () => {
-  const ok = await confirmDialog('Reload demo data?', 'This puts every rank, route and taxi back to the starting demo state. Ranks you added or moved will be lost.', 'Reload demo data', { danger: true });
-  if (!ok) return;
-  try {
-    toast((await api('/api/reset', { method: 'POST' })).message);
-    selectedTaxi = null;
-    fitted = false;
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-});
-
 // Leaflet animates zoom with transforms; switch off our marker easing while it does.
 map.on('zoomstart', () => map.getContainer().classList.add('no-anim'));
 map.on('zoomend', () => setTimeout(() => map.getContainer().classList.remove('no-anim'), 50));
 
 connect({
+  staff: true,
   pos: true,
   onSnapshot(snap) {
     s = snap;
-    $('#sim-note').textContent = `Simulated taxis drive ${s.meta.simScale} times faster than real time.`;
     renderSummary();
     renderRouteFilter();
     drawStatic();

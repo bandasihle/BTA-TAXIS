@@ -234,6 +234,7 @@ $('#route-form').addEventListener('submit', async (e) => {
 });
 
 connect({
+  staff: true,
   onSnapshot(snap) {
     s = snap;
     // Taxi movement changes the snapshot every few seconds; only redraw when ranks or routes change,

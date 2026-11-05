@@ -9,7 +9,7 @@ test('all nine provinces are listed', () => {
   ]);
 });
 
-test('every rank has destinations with a time and a price', () => {
+test('every destination has a time and a price', () => {
   const ids = new Set();
   for (const p of PROVINCES) {
     for (const r of p.regions) {
@@ -17,7 +17,6 @@ test('every rank has destinations with a time and a price', () => {
         const path = `${p.id}/${r.id}/${k.id}`;
         assert.ok(!ids.has(path), `duplicate ${path}`);
         ids.add(path);
-        assert.ok(k.destinations.length > 0, `${k.name} has no destinations`);
         for (const d of k.destinations) {
           assert.match(d.from, /^([01]\d|2[0-4]):[0-5]\d$/, `${k.name} > ${d.name} start time`);
           assert.match(d.until, /^([01]\d|2[0-4]):[0-5]\d$/, `${k.name} > ${d.name} end time`);
@@ -28,9 +27,14 @@ test('every rank has destinations with a time and a price', () => {
   }
 });
 
+test('only Etwatwa Las Vegas has fares: no made-up prices', () => {
+  const { region } = lookup(['gauteng', 'benoni-ekurhuleni']);
+  assert.deepEqual(region.ranks.filter((k) => k.destinations.length).map((k) => k.id), ['etwatwa-las-vegas']);
+});
+
 test('Etwatwa Las Vegas matches the association list', () => {
   const { rank } = lookup(['gauteng', 'benoni-ekurhuleni', 'etwatwa-las-vegas']);
-  assert.equal(rank.sample, false);
+  assert.equal(rank.exact, true);
   assert.deepEqual(
     rank.destinations.map((d) => `${d.name} | ${timeLabel(d.from)} - ${timeLabel(d.until)} | R${d.price}`),
     [

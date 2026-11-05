@@ -6,6 +6,7 @@ registerServiceWorker();
 
 let filled = false;
 connect({
+  staff: true,
   onSnapshot(s) {
     if (!filled) {
       filled = true;

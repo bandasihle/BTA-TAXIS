@@ -12,6 +12,12 @@ export class HttpError extends Error {
 
 const AT_RANK = [STATUS.ARRIVED, STATUS.QUEUED, STATUS.LOADING];
 
+// Expected time on the road, for "arriving in about 20 min": an average taxi speed plus
+// stops. Real arrival is recorded by the marshal at the destination (later, by GPS).
+const AVG_SPEED_KMH = 40;
+const STOPS_MS = 5 * 60_000;
+export const expectedTripMs = (km) => Math.round((km / AVG_SPEED_KMH) * 3_600_000 + STOPS_MS);
+
 export function normalizePlate(plate) {
   return String(plate ?? '').toUpperCase().replace(/[^A-Z0-9 -]/g, '').replace(/\s+/g, ' ').trim();
 }
@@ -22,9 +28,7 @@ export function normalizePlate(plate) {
  */
 export function createStore(db, opts = {}) {
   const now = opts.now ?? (() => Date.now());
-  const random = opts.random ?? Math.random;
   const emitter = new EventEmitter();
-  const settings = { demo: opts.demo ?? false, simScale: opts.simScale ?? 20 };
 
   const one = (sql, ...p) => db.prepare(sql).get(...p);
   const all = (sql, ...p) => db.prepare(sql).all(...p);
@@ -118,12 +122,10 @@ export function createStore(db, opts = {}) {
         case 'depart': {
           checkTransition('depart', taxi);
           const route = getRoute(entry.route_id);
-          const km = lineLength(JSON.parse(route.polyline));
-          const speed = 30 + random() * 30;
-          const durationMs = Math.max(20_000, Math.round(((km / speed) * 3_600_000) / settings.simScale));
+          const durationMs = expectedTripMs(lineLength(JSON.parse(route.polyline)));
           const trip = run(
             'INSERT INTO trips (taxi_id, route_id, departed_at, seats_at_departure, duration_ms, speed_kmh) VALUES (?, ?, ?, ?, ?, ?)',
-            taxi.id, route.id, now(), entry.seats, durationMs, +speed.toFixed(1),
+            taxi.id, route.id, now(), entry.seats, durationMs, AVG_SPEED_KMH,
           );
           const tripId = Number(trip.lastInsertRowid);
           run('DELETE FROM queue_entries WHERE id = ?', entry.id);
@@ -380,7 +382,25 @@ export function createStore(db, opts = {}) {
                   ORDER BY departed_at DESC`).map(mapTrip),
       events: all('SELECT * FROM events ORDER BY at DESC, id DESC LIMIT 100').map(mapEvent),
       marshals: all('SELECT * FROM marshals ORDER BY name').map((m) => ({ id: m.id, name: m.name, rankId: m.rank_id })),
-      meta: { demo: settings.demo, simScale: settings.simScale, serverTime: now(), demoData: true },
+      meta: { serverTime: now() },
+    };
+  }
+
+  /**
+   * What passengers may see: ranks, routes, queues and taxis by plate and seats, and
+   * open trips for arrival times. No driver, owner or marshal details, and no event log.
+   */
+  function publicSnapshot() {
+    const s = snapshot();
+    return {
+      ranks: s.ranks.map(({ id, name, lat, lng, area }) => ({ id, name, lat, lng, area })),
+      routes: s.routes,
+      taxis: s.taxis.map(({ id, plate, capacity, status, rankId, tripId }) => ({ id, plate, capacity, status, rankId, tripId })),
+      queue: s.queue.map(({ id, taxiId, rankId, routeId, position, seats, status }) => ({ id, taxiId, rankId, routeId, position, seats, status })),
+      trips: s.trips.filter((t) => !t.arrivedAt).map(({ id, taxiId, routeId, departedAt, durationMs }) => ({ id, taxiId, routeId, departedAt, durationMs })),
+      events: [],
+      marshals: [],
+      meta: s.meta,
     };
   }
 
@@ -388,15 +408,9 @@ export function createStore(db, opts = {}) {
     return one('SELECT COUNT(*) AS n FROM ranks').n === 0;
   }
 
-  function setDemo(on) {
-    settings.demo = !!on;
-    changed();
-    return { demo: settings.demo, message: settings.demo ? 'Demo mode on' : 'Demo mode off' };
-  }
-
   return {
     db, tx, act, createTaxi, taxiHistory, createRank, updateRank, deleteRank, createRoute, deleteRoute,
-    snapshot, isEmpty, setDemo, settings, now, random,
+    snapshot, publicSnapshot, isEmpty, now,
     on: (...a) => emitter.on(...a),
     off: (...a) => emitter.off(...a),
     emitChange: changed,

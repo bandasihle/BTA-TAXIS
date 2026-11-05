@@ -247,7 +247,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .banner { padding: 10px 16px; font-weight: 500; font-size: 14px; border-bottom: 1px solid var(--line); }
 .banner.offline { background: var(--accent); color: var(--on-accent); border-color: var(--accent-deep); }
-.banner.demo { background: var(--surface-2); color: var(--ink-2); }
 .banner button { margin-left: 8px; }
 
 .footer { padding: 16px; font-size: 13px; color: var(--ink-3); }

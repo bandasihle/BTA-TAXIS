@@ -18,6 +18,7 @@ const ICON_UP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 const ICON_DOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
 connect({
+  staff: true,
   onSnapshot(snap) {
     s = snap;
     if (!s.rankById.has(rankId)) rankId = s.ranks[0]?.id;
@@ -71,9 +72,7 @@ function render() {
           ${s.ranks.map((r) => `<option value="${r.id}"${r.id === rankId ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}
         </select>
       </div>
-    </div>
-    ${s.meta.demo ? `<p class="banner demo" style="margin:0 0 12px;border:1px solid var(--line)">Demo mode is on: simulated marshals are working these queues too.
-      <button class="btn sm" data-action="demo-off" data-key="demo-off" type="button">Turn it off</button></p>` : ''}`;
+    </div>`;
 
   const tabs = routes.length
     ? `<div class="tabs" role="tablist" aria-label="Routes from ${esc(rank.name)}">
@@ -211,9 +210,6 @@ app.addEventListener('click', async (e) => {
       break;
     case 'arrive':
       await busy(b, () => act({ type: 'arrive', taxiId }));
-      break;
-    case 'demo-off':
-      await busy(b, async () => toast((await api('/api/demo', { method: 'POST', body: { on: false } })).message));
       break;
   }
 });
