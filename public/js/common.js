@@ -266,8 +266,39 @@ export function connect({ pos = false, staff = false, onSnapshot, onPos }) {
   // The browser retries a dropped stream by itself. When the server refuses it instead (the
   // session ended, or the app's one-time ticket was used), open a fresh one. A staff screen
   // checks the session first, which sends the person to sign in when it has ended.
+  // A browser allows only 6 connections to one site over plain http, and every open tab's
+  // stream holds one: with six tabs open the next page would wait forever. A tab that is not
+  // being looked at closes its stream and opens a fresh one (with a fresh snapshot) when it
+  // is shown again. That also saves data and battery on phones.
   let es;
+  let opening = false;
+  let retry = null;
+  function close() {
+    clearTimeout(retry);
+    retry = null;
+    es?.close();
+    es = null;
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) close();
+    else if (!es && !opening) open();
+  });
+  addEventListener('pagehide', close);
+  addEventListener('pageshow', (e) => {
+    if (e.persisted && !es && !opening && !document.hidden) open(); // back to a page kept in memory
+  });
+
   async function open() {
+    if (document.hidden) return; // opened when the tab is shown
+    opening = true;
+    try {
+      await start();
+    } finally {
+      opening = false;
+    }
+  }
+
+  async function start() {
     const params = new URLSearchParams();
     if (pos) params.set('pos', '1');
     if (staff) {
@@ -277,21 +308,28 @@ export function connect({ pos = false, staff = false, onSnapshot, onPos }) {
         if (NATIVE) params.set('ticket', (await api('/api/stream-ticket', { method: 'POST', body: {} })).ticket);
       } catch {
         banner.hidden = false;
-        return void setTimeout(open, 5000);
+        retry = setTimeout(open, 5000);
+        return;
       }
+      if (document.hidden) return; // hidden while checking the session
     }
-    es = new EventSource(`${API_BASE}/api/stream?${params}`);
-    es.addEventListener('snapshot', (e) => {
+    const stream = new EventSource(`${API_BASE}/api/stream?${params}`);
+    es = stream;
+    stream.addEventListener('snapshot', (e) => {
       banner.hidden = true;
       const snap = JSON.parse(e.data);
       clock.offset = snap.meta.serverTime - Date.now();
       onSnapshot(index(snap));
       flushOutbox();
     });
-    if (onPos) es.addEventListener('pos', (e) => onPos(JSON.parse(e.data)));
-    es.addEventListener('error', () => {
+    if (onPos) stream.addEventListener('pos', (e) => onPos(JSON.parse(e.data)));
+    stream.addEventListener('error', () => {
+      if (es !== stream) return; // a stream this tab closed on purpose
       banner.hidden = false;
-      if (es.readyState === EventSource.CLOSED) setTimeout(open, 3000);
+      if (stream.readyState === EventSource.CLOSED) {
+        es = null;
+        retry = setTimeout(open, 3000);
+      }
     });
   }
   open();
