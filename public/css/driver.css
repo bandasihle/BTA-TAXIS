@@ -10,9 +10,9 @@ button { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 
 .dv-main { max-width: 520px; margin: 0 auto; padding: 12px 16px calc(40px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 20px; }
-.dv-main h1 { font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.015em; }
+.dv-main h1 { font-size: 28px; line-height: 1.15; font-weight: 500; }
 .dv-quiet { color: var(--ink-2); font-size: 15px; }
-.dv-error { color: var(--stop); font-weight: 600; }
+.dv-error { color: var(--stop); font-weight: 500; }
 
 /* ---- who and what */
 .dv-plate {
@@ -25,16 +25,16 @@ button { font: inherit; color: inherit; }
 /* ---- the switch */
 .dv-go {
   display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 64px;
-  border: 0; border-radius: 14px; background: var(--blue); color: var(--white); box-shadow: 0 6px 16px rgba(1, 68, 183, 0.28);
-  font-size: 19px; font-weight: 700; cursor: pointer; transition: transform 0.12s var(--ease);
+  border: 0; border-radius: 12px; background: var(--blue); color: var(--white);
+  font-size: 18px; font-weight: 600; cursor: pointer; transition: transform 0.12s var(--ease);
 }
-.dv-go:active { transform: scale(0.985); }
-.dv-go.is-on { background: var(--white); color: var(--red); box-shadow: inset 0 0 0 2.5px var(--red); }
+.dv-go:active { transform: scale(0.98); }
+.dv-go.is-on { background: var(--white); color: var(--red); box-shadow: inset 0 0 0 1.5px var(--red); }
 .dv-go:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ---- the live slip */
-.dv-slip { padding: 22px 18px 18px; display: flex; flex-direction: column; gap: 14px; }
-.dv-msg { font-weight: 600; }
+.dv-slip { padding: 24px 20px 20px; display: flex; flex-direction: column; gap: 16px; }
+.dv-msg { font-weight: 500; }
 .dv-msg.ok { color: var(--go); }
 .dv-msg.warn { color: var(--stop); }
 .dv-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--go); margin-right: 8px; vertical-align: 1px; animation: dv-beat 2s ease-in-out infinite; }
@@ -43,29 +43,29 @@ button { font: inherit; color: inherit; }
 /* ---- quiet buttons and the notice */
 .dv-btn {
   display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px;
-  border: 0; border-radius: 12px; background: var(--paper-2); color: var(--ink); font-weight: 600; cursor: pointer;
+  border: 0; border-radius: 10px; background: var(--paper-2); color: var(--ink); font-weight: 500; cursor: pointer;
 }
 .dv-btn.link { background: none; padding: 0 4px; color: var(--blue); }
 .dv-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: 14px; color: var(--ink-2); }
 .dv-foot p { flex-basis: 100%; }
 
-.notice { display: grid; gap: 4px; padding: 20px 18px; }
-.notice dt { font-weight: 700; margin-top: 10px; }
+.notice { display: grid; gap: 4px; padding: 20px; }
+.notice dt { font-weight: 600; margin-top: 12px; }
 .notice dt:first-child { margin-top: 0; }
 .notice dd { color: var(--ink-2); }
 
 /* ---- toast and dialog from common.js */
 .toasts { position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 2000; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
-.toast { max-width: 480px; padding: 12px 16px; border-radius: 12px; background: var(--ink); color: var(--white); font-weight: 500; box-shadow: 0 6px 20px rgba(17, 18, 20, 0.2); pointer-events: auto; }
+.toast { max-width: 480px; padding: 12px 16px; border-radius: 12px; background: var(--ink); color: var(--white); font-weight: 500; box-shadow: var(--lift); pointer-events: auto; }
 .toast.error { background: var(--stop); }
 .toast.warn { background: var(--soon); }
 
 dialog { border: 0; border-radius: 16px; padding: 0; width: min(420px, calc(100vw - 32px)); background: var(--white); color: var(--ink); }
 dialog::backdrop { background: rgba(17, 18, 20, 0.45); }
 .dialog-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-.dialog-body h2 { font-size: 21px; font-weight: 700; }
+.dialog-body h2 { font-size: 20px; font-weight: 500; }
 .dialog-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
-.dialog-actions .btn { min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px; font-weight: 600; cursor: pointer; background: var(--paper-2); }
+.dialog-actions .btn { min-height: 44px; padding: 0 16px; border: 0; border-radius: 10px; font-weight: 500; cursor: pointer; background: var(--paper-2); }
 .dialog-actions .btn.quiet { background: none; color: var(--blue); }
 .dialog-actions .btn.primary { background: var(--blue); color: var(--white); }
 .dialog-actions .btn.danger { background: var(--stop); color: var(--white); }

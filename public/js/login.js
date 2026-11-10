@@ -24,7 +24,7 @@ function nextPage(user) {
 function show(form) {
   for (const el of [signin, newpin]) el.hidden = el !== form;
   $('#passenger').closest('.gate-card').hidden = form === newpin;
-  $('#gate-title').textContent = form === newpin ? 'Choose your PIN' : 'Welcome';
+  $('#gate-title').textContent = form === newpin ? 'Choose your PIN' : 'Find your taxi';
 }
 
 function done(user) {

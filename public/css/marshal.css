@@ -1,0 +1,159 @@
+/* Marshal screen in the Danki Driver look. Loads after app.css and slip-base.css and only
+   on marshal.html, so the other staff screens keep app.css until they are restyled.
+   The app.css token names are remapped here; the selectors match app.css so they win. */
+
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #eceef2;
+  --line: rgba(12, 26, 75, 0.12);
+  --line-strong: rgba(12, 26, 75, 0.32);
+  --ink: #0c1a4b;
+  --ink-2: #4b5565;
+  --ink-3: #6b7280;
+  --accent: #0144b7;
+  --accent-deep: #022d84;
+  --on-accent: #ffffff;
+  --accent-text: #0144b7;
+  --go: #0b6e35;
+  --wait: #0d7480;
+  --stop: #c01822;
+  --plate-bg: #fbfbf6;
+  --plate-ink: #0c1a4b;
+  --focus: #0144b7;
+  --shadow: none;
+  --lift: 0 1px 2px rgba(10, 14, 30, 0.05), 0 8px 24px rgba(10, 14, 30, 0.06);
+  --font: var(--ui);
+  --font-cond: var(--mono);
+  --r-s: 10px;
+  --r-l: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0b0d14; --surface: #11141c; --surface-2: #1a1e28;
+    --line: rgba(238, 240, 245, 0.10); --line-strong: rgba(238, 240, 245, 0.28);
+    --ink: #eef0f5; --ink-2: #a3a9b8; --ink-3: #8a91a3;
+    --accent: #5b8cff; --accent-deep: #3f74f2; --on-accent: #07080d; --accent-text: #8fb0ff;
+    --go: #4cc38a; --wait: #4cc3d4; --stop: #e5484d; --plate-bg: #f1f1ea; --plate-ink: #0c1a4b;
+    --focus: #8fb0ff; --lift: none;
+  }
+}
+:root[data-theme='dark'] {
+  --bg: #0b0d14; --surface: #11141c; --surface-2: #1a1e28;
+  --line: rgba(238, 240, 245, 0.10); --line-strong: rgba(238, 240, 245, 0.28);
+  --ink: #eef0f5; --ink-2: #a3a9b8; --ink-3: #8a91a3;
+  --accent: #5b8cff; --accent-deep: #3f74f2; --on-accent: #07080d; --accent-text: #8fb0ff;
+  --go: #4cc38a; --wait: #4cc3d4; --stop: #e5484d; --plate-bg: #f1f1ea; --plate-ink: #0c1a4b;
+  --focus: #8fb0ff; --lift: none;
+}
+
+body { font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------------ header: the blue bar
+   with the livery stripe, as on the passenger screens */
+
+.topbar {
+  border-top: 0; border-bottom: 0; background: #0144b7; color: #fff;
+}
+.topbar::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -5px; height: 5px;
+  background: linear-gradient(#d71f2b 0 3px, #fff 3px 5px); pointer-events: none;
+}
+.brand-name { color: #fff; font-weight: 600; }
+.brand-name small { color: #c9d8ff; font-weight: 400; }
+.topbar .who { color: #c9d8ff; }
+.topbar .btn.quiet { color: #fff; font-weight: 500; }
+.topbar .btn.quiet:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.topbar .icon-btn { background: transparent; border-color: rgba(255, 255, 255, 0.35); color: #fff; border-radius: 8px; }
+.topbar .icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.brand-logo img { padding: 0; background: none; width: 36px; height: 36px; }
+.nav a { color: #c9d8ff; }
+.nav a:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.nav a[aria-current='page'] { color: #fff; box-shadow: inset 0 -3px 0 #fff; }
+.topbar :focus-visible { outline-color: #fff; }
+@media (max-width: 760px) {
+  .nav { border-top: 1px solid rgba(255, 255, 255, 0.16); }
+}
+
+/* ------------------------------------------------------------------ controls */
+
+.btn { border: 1px solid var(--line-strong); border-radius: 10px; font-weight: 500; transition: background-color 0.15s var(--ease), transform 0.12s var(--ease); }
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn.primary, .btn.go { font-weight: 600; }
+.btn.go:hover { filter: none; background: #095c2c; border-color: #095c2c; }
+.btn.sm { border-radius: 8px; }
+.btn.quiet { border-color: transparent; }
+.field { gap: 8px; font-weight: 500; }
+.input, select.input, textarea.input { border: 1px solid var(--line-strong); border-radius: 10px; font-weight: 400; }
+.input:focus-visible { outline: 0; border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus); }
+.hint { border: 0; border-radius: 10px; background: var(--surface-2); color: var(--ink-2); padding: 12px 16px; }
+.guess { font-family: var(--mono); font-weight: 400; color: var(--ink-3); border-color: var(--line-strong); border-radius: 4px; padding: 0 6px; }
+
+/* a South African plate: printed letters on cream, ink border */
+.plate { font-family: var(--mono); font-weight: 600; letter-spacing: 0.04em; border: 1.5px solid var(--plate-ink); border-radius: 4px; padding: 2px 8px 1px; line-height: 1.3; }
+.plate.lg { font-size: 26px; padding: 4px 12px 2px; border-width: 2px; border-radius: 6px; }
+
+/* ------------------------------------------------------------------ the rank */
+
+.marshal { padding-top: 8px; }
+.m-head { padding: 20px 0 16px; gap: 4px; }
+.m-rank { font-family: var(--ui); font-weight: 500; font-size: 30px; line-height: 1.15; }
+.m-rank-select { border-radius: 8px; }
+
+/* route tabs: the chosen route is filled navy, the count sits beside it in mono */
+.tabs { gap: 8px; padding: 4px 0 12px; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { min-height: 44px; padding: 8px 16px; border-radius: 10px; border: 1px solid var(--line-strong); font-weight: 500; transition: background-color 0.15s var(--ease); }
+.tab:hover { background: var(--surface-2); }
+.tab[aria-selected='true'] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tab .count { font-family: var(--mono); font-size: 14px; font-weight: 400; color: var(--ink-3); }
+.tab[aria-selected='true'] .count { color: inherit; opacity: 0.7; }
+
+/* the taxi loading now is the screen's slip: torn off the roll, seat count in big blue figures */
+.loading-panel {
+  border: 0; border-radius: 0; padding: 24px 20px 20px; gap: 16px; box-shadow: var(--lift);
+  -webkit-mask: radial-gradient(circle 5px at 9px 0, #0000 98%, #000) 0 0 / 18px 100% repeat-x;
+          mask: radial-gradient(circle 5px at 9px 0, #0000 98%, #000) 0 0 / 18px 100% repeat-x;
+}
+.lp-who { gap: 8px; }
+.lp-who .muted { font-size: 14px; color: var(--ink-2); }
+.lp-who > .muted:first-child { font-family: var(--mono); font-size: 12px; line-height: 16px; color: var(--ink-3); }
+.lp-count strong { font-family: var(--mono); font-weight: 600; font-size: 56px; line-height: 1; color: var(--accent); }
+.lp-count span { font-family: var(--mono); font-weight: 400; font-size: 18px; color: var(--ink-2); }
+.lp-controls { gap: 8px; }
+.lp-controls .btn { min-height: 64px; font-size: 18px; border-radius: 12px; }
+.lp-controls .btn.primary { font-size: 18px; }
+.lp-depart .btn { min-height: 56px; font-size: 17px; border-radius: 12px; }
+.lp-empty {
+  -webkit-mask: none; mask: none; box-shadow: inset 0 0 0 1px var(--line); border-radius: 12px; padding: 20px;
+}
+.lp-empty p { color: var(--ink-3); }
+
+/* ------------------------------------------------------------------ lists */
+
+.m-section { margin-top: 32px; }
+.m-section > h2 { font-size: 15px; font-weight: 500; color: var(--ink-2); padding-bottom: 8px; }
+.m-section > .muted { padding: 12px 0; font-size: 15px; }
+.row { gap: 12px; padding: 12px 0; }
+.row .pos { font-family: var(--mono); font-weight: 400; font-size: 18px; width: 28px; color: var(--ink-3); }
+.row .actions { gap: 8px; }
+.progress { height: 4px; border-radius: 2px; }
+
+.sticky-cta { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
+.sticky-cta .btn { min-height: 52px; font-size: 17px; border-radius: 12px; }
+
+.footer { color: var(--ink-3); }
+
+/* ------------------------------------------------------------------ dialog and toasts */
+
+dialog { border-radius: 16px; box-shadow: var(--lift); }
+dialog::backdrop { background: rgba(10, 14, 30, 0.45); }
+.dialog-body { gap: 16px; }
+.dialog-body h2 { font-family: var(--ui); font-size: 20px; font-weight: 500; line-height: 1.2; }
+.dialog-actions { gap: 8px; }
+.toast { border-radius: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .tab { transition: none; }
+}

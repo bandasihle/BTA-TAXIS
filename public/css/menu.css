@@ -2,15 +2,15 @@
    and on the staff screens that use app.css. */
 
 .mn {
-  --mn-paper: #f4f7fd; --mn-white: #fff; --mn-ink: #0c1a4b; --mn-ink-2: #45527a; --mn-rule: #c2cbe2;
-  --mn-blue: #0144b7; --mn-wash: #e2ebfd; --mn-stop: #d71f2b;
+  --mn-paper: #f5f6f8; --mn-white: #fff; --mn-ink: #0c1a4b; --mn-ink-2: #4b5565; --mn-rule: rgba(12, 26, 75, 0.12);
+  --mn-blue: #0144b7; --mn-wash: #eaf0fb; --mn-stop: #d71f2b;
   position: fixed; inset: 0 0 0 auto; margin: 0; width: min(340px, 88vw); max-width: none; height: 100dvh; max-height: none;
   padding: 0 0 calc(16px + env(safe-area-inset-bottom));
   border: 0; border-radius: 0; background: var(--mn-paper); color: var(--mn-ink);
   font: 400 16px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  display: none; flex-direction: column; box-shadow: -8px 0 32px rgba(17, 18, 20, 0.18);
+  display: none; flex-direction: column; box-shadow: -8px 0 24px rgba(10, 14, 30, 0.10);
 }
-.mn[open] { display: flex; animation: mn-in 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+.mn[open] { display: flex; animation: mn-in 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
 .mn::backdrop { background: rgba(17, 18, 20, 0.4); }
 @keyframes mn-in { from { transform: translateX(100%); } }
 
@@ -20,29 +20,29 @@
   /* the blue bar with the livery pinstripe, as in the header */
   background: linear-gradient(to top, var(--mn-white) 0 2px, var(--mn-stop) 2px 5px, var(--mn-blue) 5px);
 }
-.mn-word { font-weight: 800; font-size: 19px; letter-spacing: -0.01em; }
+.mn-word { font-weight: 600; font-size: 18px; }
 .mn-word b { font-weight: 400; color: #c9d8ff; }
 .mn-close { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: none; color: var(--mn-white); cursor: pointer; }
 .mn-close svg { width: 20px; height: 20px; }
 .mn :focus-visible { outline: 3px solid var(--mn-blue); outline-offset: 2px; }
 
-.mn-who { margin: 4px 20px 12px; padding: 12px 14px; border-radius: 12px; background: var(--mn-white); box-shadow: 0 0 0 1px var(--mn-rule); display: flex; flex-direction: column; }
+.mn-who { margin: 4px 20px 12px; padding: 12px 16px; border-radius: 12px; background: var(--mn-white); box-shadow: 0 0 0 1px var(--mn-rule); display: flex; flex-direction: column; }
 .mn-who span { font-size: 14px; color: var(--mn-ink-2); }
 
 .mn-list { list-style: none; margin: 0; padding: 0 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
-.mn-list a { display: flex; flex-direction: column; justify-content: center; min-height: 52px; padding: 8px 12px; border-radius: 12px; color: var(--mn-ink); text-decoration: none; font-weight: 600; }
+.mn-list a { display: flex; flex-direction: column; justify-content: center; min-height: 52px; padding: 8px 12px; border-radius: 12px; color: var(--mn-ink); text-decoration: none; font-weight: 500; }
 .mn-list a small { font-weight: 400; font-size: 13px; color: var(--mn-ink-2); }
-.mn-list a:hover { background: rgba(17, 18, 20, 0.05); }
+.mn-list a:hover { background: rgba(12, 26, 75, 0.05); }
 .mn-list a[aria-current='page'] { background: var(--mn-wash); color: var(--mn-blue); }
 
 .mn-end { margin-top: auto; padding: 16px 20px 8px; border-top: 1px solid var(--mn-rule); display: flex; flex-direction: column; gap: 6px; }
 .mn-end p { margin: 0; font-size: 13px; color: var(--mn-ink-2); }
 .mn-in, .mn-out {
-  display: flex; align-items: center; justify-content: center; min-height: 50px; border-radius: 14px;
-  font-weight: 700; font-size: 16px; text-decoration: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 12px;
+  font-weight: 600; font-size: 16px; text-decoration: none; cursor: pointer;
 }
 .mn-in { background: var(--mn-blue); color: var(--mn-white); }
-.mn-out { border: 0; background: var(--mn-white); color: var(--mn-stop); box-shadow: inset 0 0 0 1.5px var(--mn-stop); font-family: inherit; }
+.mn-out { border: 0; background: var(--mn-white); color: var(--mn-stop); box-shadow: inset 0 0 0 1px var(--mn-rule); font-family: inherit; }
 .mn-out:disabled { opacity: 0.5; }
 .mn-foot { margin: 8px 20px 0; font-size: 12px; color: var(--mn-ink-2); }
 

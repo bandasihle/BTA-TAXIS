@@ -25,23 +25,22 @@ button { font: inherit; color: inherit; }
   flex: 1; display: flex; flex-direction: column; min-height: 0;
   margin-top: calc(-1 * (var(--head) + env(safe-area-inset-top)));
 }
-.dk-map { height: 48vh; height: 48dvh; min-height: 300px; background: var(--paper-2); border-bottom: 4px solid var(--blue); }
+.dk-map { height: 48vh; height: 48dvh; min-height: 300px; background: var(--paper-2); border-bottom: 1px solid var(--rule); }
 .dk-panel { container-type: inline-size; display: flex; flex-direction: column; }
 @media (min-width: 900px) {
   body.dk { height: 100vh; height: 100dvh; }
   .dk-app { flex-direction: row; }
-  .dk-map { flex: 1; height: auto; border-bottom: 0; border-right: 4px solid var(--blue); }
+  .dk-map { flex: 1; height: auto; border-bottom: 0; border-right: 1px solid var(--rule); }
   .dk-panel { width: 460px; flex: none; overflow-y: auto; padding-top: calc(var(--head) + 5px + env(safe-area-inset-top)); }
 }
 
 .leaflet-container { font-family: var(--ui); background: var(--paper-2); }
 .leaflet-top { top: calc(var(--head) + 5px + env(safe-area-inset-top)); }
-/* tiles printed a little flatter, so ink and blue on top read first */
-/* the base map, washed toward the badge blue so the pins and routes carry the colour */
-.dk-tiles { filter: grayscale(0.85) sepia(0.25) hue-rotate(178deg) saturate(1.6) brightness(1.04) contrast(1.02); }
-.leaflet-bar { border: 1px solid var(--ink) !important; border-radius: 4px !important; box-shadow: none !important; }
+/* the base map in grey, so the red rank, the blue routes and the taxis carry the colour */
+.dk-tiles { filter: grayscale(1) brightness(1.04) contrast(0.92); }
+.leaflet-bar { border: 1px solid var(--rule-strong) !important; border-radius: 8px !important; overflow: hidden; box-shadow: none !important; }
 .leaflet-bar a { color: var(--ink) !important; background: var(--white) !important; border-color: var(--rule) !important; }
-.leaflet-control-attribution { background: rgba(251, 251, 248, 0.85) !important; color: var(--ink-2) !important; font-size: 11px; }
+.leaflet-control-attribution { background: rgba(255, 255, 255, 0.85) !important; color: var(--ink-2) !important; font-size: 11px; }
 .leaflet-control-attribution a { color: var(--ink-2) !important; }
 .dk-line { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 2 6; stroke-linecap: round; opacity: 0.75; }
 .dk-line.is-on { stroke: var(--blue); stroke-width: 4; stroke-dasharray: none; opacity: 1; }
@@ -60,7 +59,7 @@ button { font: inherit; color: inherit; }
 .pin.is-dim { opacity: 0.55; }
 .pin-here { transform: translate(-11px, -11px); cursor: default; }
 .pin-here i { width: 22px; height: 22px; border-radius: 3px; background: var(--red); border: 3px solid var(--white); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); }
-.pin-here b { font-size: 16px; font-weight: 700; background: var(--red); color: var(--white); border-color: var(--red); }
+.pin-here b { font-size: 16px; font-weight: 600; background: var(--red); color: var(--white); border-color: var(--red); }
 .pin-dest { transform: translate(-6px, -6px); }
 .pin-dest i { width: 12px; height: 12px; border-width: 2.5px; }
 .pin-dest b { font-size: 12px; }
@@ -74,62 +73,63 @@ button { font: inherit; color: inherit; }
 .dk-trail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 0; font-size: 15px; color: var(--ink-2); }
 .dk-trail li:not(:last-child)::after { content: '/'; padding: 0 8px; color: var(--rule); }
 .dk-trail a { color: var(--ink-2); }
-.dk-trail [aria-current] { color: var(--ink); font-weight: 600; }
+.dk-trail [aria-current] { color: var(--ink); font-weight: 500; }
 
 /* ------------------------------------------------------------------ main */
 
 .dk-main { flex: 1; padding: 12px 16px 32px; }
-.dk-main h1 { font-size: 28px; line-height: 1.15; font-weight: 700; letter-spacing: -0.015em; text-wrap: balance; }
+.dk-main h1 { font-size: 28px; line-height: 1.15; font-weight: 500; text-wrap: balance; }
 .dk-lede { margin-top: 4px; color: var(--ink-2); font-size: 16px; }
 
-.dk-list { list-style: none; margin: 20px 0 0; padding: 0; border-top: 1px dashed var(--ink); }
-.dk-list li { border-bottom: 1px dashed var(--rule); }
+.dk-list { list-style: none; margin: 20px 0 0; padding: 0; border-top: 1px solid var(--rule); }
+.dk-list li { border-bottom: 1px solid var(--rule); }
 .dk-list a {
-  display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 10px 2px;
+  display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 4px;
   color: var(--ink); text-decoration: none; transition: background-color 0.2s var(--ease);
 }
 .dk-list a:hover, .dk-list a:active { background: var(--paper-2); }
 .dk-code {
-  flex: none; width: 48px; padding: 5px 0 4px; text-align: center;
-  border: 1.5px solid var(--blue); border-radius: 3px; background: var(--blue-wash); color: var(--blue);
-  font-family: var(--mono); font-weight: 600; font-size: 14px; line-height: 1.2; letter-spacing: 0.04em;
+  flex: none; width: 48px; padding: 4px 0; text-align: center;
+  border-radius: 6px; background: var(--paper-2); color: var(--ink-2);
+  font-family: var(--mono); font-weight: 400; font-size: 13px; line-height: 1.25;
 }
-.dk-name { flex: 1; min-width: 0; font-weight: 600; font-size: 18px; line-height: 1.25; }
+.dk-name { flex: 1; min-width: 0; font-weight: 500; font-size: 17px; line-height: 1.25; }
 .dk-name small { display: block; margin-top: 2px; font-weight: 400; font-size: 14px; color: var(--ink-2); }
-.dk-go { width: 20px; height: 20px; flex: none; color: var(--ink-2); }
+.dk-go { width: 18px; height: 18px; flex: none; color: var(--ink-3); }
 
 .dk-empty { margin-top: 18px; color: var(--ink-2); font-size: 17px; }
-.dk-back { display: inline-block; margin-top: 14px; font-weight: 600; }
+.dk-back { display: inline-block; margin-top: 16px; font-weight: 500; }
 .dk-small { margin-top: 16px; font-size: 14px; color: var(--ink-2); }
 
 /* ------------------------------------------------------------------ fares: the till roll */
 
-.dk-fares { list-style: none; margin: 18px 0 0; padding: 0; border-top: 1px dashed var(--ink); }
-.dk-fare { border-bottom: 1px dashed var(--rule); }
+/* the fare list is the till roll: dashed tear lines between entries */
+.dk-fares { list-style: none; margin: 20px 0 0; padding: 0; border-top: 1px dashed var(--rule-strong); }
+.dk-fare { border-bottom: 1px dashed var(--rule-strong); }
 .dk-fare-btn {
   display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 0 10px;
-  width: 100%; min-height: 64px; padding: 12px 2px 4px; text-align: left;
+  width: 100%; min-height: 64px; padding: 12px 4px 4px; text-align: left;
   background: none; border: 0; cursor: pointer; color: var(--ink);
   transition: background-color 0.2s var(--ease);
 }
 .dk-fare-btn:hover { background: var(--paper-2); }
 .dk-fare-btn[aria-expanded='true'] { background: var(--blue-wash); }
-.dk-to { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 18px; font-weight: 600; line-height: 1.25; }
+.dk-to { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 17px; font-weight: 500; line-height: 1.25; }
 .dk-to-name { overflow-wrap: anywhere; }
-.dk-to::after { content: ''; flex: 1; min-width: 16px; border-bottom: 2px dotted var(--ink-2); transform: translateY(-4px); }
-.dk-price { font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--blue); letter-spacing: -0.01em; }
+.dk-to::after { content: ''; flex: 1; min-width: 16px; border-bottom: 2px dotted var(--rule-strong); transform: translateY(-4px); }
+.dk-price { font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--blue); }
 .dk-when { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 4px; font-size: 13px; }
-.dk-time { font-family: var(--mono); color: var(--ink-2); }
+.dk-time { font-family: var(--mono); color: var(--ink-3); }
 .dk-fare.is-closed .dk-to, .dk-fare.is-closed .dk-price { color: var(--ink-2); }
 
 /* running now / last taxi soon / closed, set by the live update */
-.dk-open { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; color: var(--go); }
+.dk-open { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; color: var(--go); }
 .dk-open::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
 .dk-open:empty { display: none; }
 .dk-open.is-soon { color: var(--soon); }
 .dk-open.is-closed { color: var(--stop); }
 
-.dk-live { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 0 2px 12px; font-size: 14px; color: var(--ink-2); }
+.dk-live { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 0 4px 12px; font-size: 14px; color: var(--ink-2); }
 .dk-load { display: inline-flex; align-items: center; gap: 8px; }
 .dk-load:empty { display: none; }
 .dk-seats { display: inline-flex; gap: 2px; }
@@ -141,8 +141,8 @@ button { font: inherit; color: inherit; }
 .dk-slip {
   position: fixed; left: 50%; bottom: 0; z-index: 1100; width: min(560px, 100%); translate: -50% 0;
   max-height: 80dvh; overflow-y: auto;
-  padding: 26px 20px calc(18px + env(safe-area-inset-bottom));
-  box-shadow: 0 -6px 24px rgba(17, 18, 20, 0.18);
+  padding: 28px 20px calc(20px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 24px rgba(10, 14, 30, 0.10);
   clip-path: inset(100% 0 0 0);
   transition: clip-path 0.55s var(--ease), visibility 0s 0.55s;
   visibility: hidden;
@@ -153,31 +153,32 @@ button { font: inherit; color: inherit; }
 .dk-slip-top { display: flex; justify-content: space-between; align-items: center; }
 .dk-slip-close { width: 44px; height: 44px; margin: -12px -10px -12px 0; display: grid; place-items: center; border-radius: 50%; background: none; border: 0; cursor: pointer; color: var(--ink); }
 .dk-slip-close:hover { background: var(--paper-2); }
-.dk-slip-to { font-size: 22px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; margin-top: 10px; }
+.dk-slip-to { font-size: 22px; line-height: 1.2; font-weight: 500; margin-top: 12px; }
 .dk-slip-to:focus { outline: none; }
 .dk-slip-from { font-size: 15px; color: var(--ink-2); }
-.dk-slip-fare { display: flex; align-items: baseline; justify-content: space-between; margin: 14px 0; padding: 10px 0; border-block: 2px dashed var(--ink); }
+.dk-slip-fare { display: flex; align-items: baseline; justify-content: space-between; margin: 16px 0; padding: 12px 0; border-block: 1.5px dashed var(--ink); }
 .dk-slip-fare span { font-size: 15px; color: var(--ink-2); }
 .dk-slip-fare b { font-family: var(--mono); color: var(--blue); font-size: 56px; line-height: 1; font-weight: 600; letter-spacing: -0.03em; }
 .dk-slip .slip-rows dd .dk-seats { vertical-align: -1px; margin-right: 6px; }
-.dk-slip-note { margin-top: 14px; font-size: 13px; color: var(--ink-2); }
+.dk-slip-note { margin-top: 16px; font-size: 13px; color: var(--ink-3); }
 
 .dk-preview {
   display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; min-height: 52px; margin-top: 18px; border-radius: 8px;
-  font-size: 16px; font-weight: 700; color: var(--white); background: var(--blue); border: 0; cursor: pointer;
+  width: 100%; min-height: 52px; margin-top: 20px; border-radius: 10px;
+  font-size: 16px; font-weight: 600; color: var(--white); background: var(--blue); border: 0; cursor: pointer;
   transition: background-color 0.2s var(--ease), transform 0.1s;
 }
-.dk-preview:active { transform: scale(0.985); }
+.dk-preview:hover { background: var(--blue-deep); }
+.dk-preview:active { transform: scale(0.98); }
 .dk-preview[aria-pressed='true'] { background: var(--white); color: var(--blue); box-shadow: inset 0 0 0 2px var(--blue); }
 .dk-preview svg { width: 20px; height: 20px; }
 
 /* ------------------------------------------------------------------ footer */
 
 .dk-foot {
-  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--ink); font-size: 14px; color: var(--ink-2);
-  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 24px;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--rule); font-size: 13px; color: var(--ink-3);
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 24px;
 }
 
 /* ------------------------------------------------------------------ taxis on the map, trip preview */
@@ -197,9 +198,9 @@ button { font: inherit; color: inherit; }
           mask: radial-gradient(circle 4px at 8px 0, #0000 98%, #000) 0 0 / 16px 100% repeat-x;
   font-size: 14px; color: var(--ink-2);
 }
-.dk-trip b { font-size: 17px; color: var(--ink); line-height: 1.2; }
+.dk-trip b { font-size: 17px; font-weight: 500; color: var(--ink); line-height: 1.2; }
 .dk-trip[hidden] { display: none; }
-.leaflet-tooltip { font-family: var(--ui); font-weight: 600; background: var(--white); color: var(--ink); border: 1px solid var(--ink); box-shadow: none; }
+.leaflet-tooltip { font-family: var(--ui); font-weight: 500; background: var(--white); color: var(--ink); border: 1px solid var(--ink); box-shadow: none; }
 .leaflet-tooltip-top::before { border-top-color: var(--ink); }
 
 @media (prefers-reduced-motion: reduce) {
