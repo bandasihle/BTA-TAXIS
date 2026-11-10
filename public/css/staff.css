@@ -151,3 +151,9 @@ h1, .users h1, .m-rank, .home h1, .signin-card h1 { font-family: var(--ui); font
 .board-row { border-bottom-color: #24346f; }
 .board-row .state .seatsline i { background: #24346f; }
 .board-foot select { background: #10225f; border-color: #24346f; }
+
+.board-page .board { min-height: calc(100dvh - 56px); }
+.board-page.is-wall #topbar { display: none; }
+.board-page.is-wall .board { min-height: 100dvh; }
+.board-full { background: transparent; color: #fff; border-color: #24346f; min-height: 44px; }
+.board-full:hover { background: #10225f; }

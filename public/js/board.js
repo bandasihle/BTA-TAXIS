@@ -1,4 +1,38 @@
-import { $, esc, local, connect, plate, clock, eta } from './common.js';
+import { $, esc, local, connect, plate, clock, eta, api, renderTopbar } from './common.js';
+import { mountMenu } from './menu.js';
+
+// The same header as every other screen: staff get their screens and the Menu; anyone else
+// (a passenger, or the wall screen before anyone signs in) gets the Danki Driver bar and Menu.
+api('/api/me')
+  .then((me) => {
+    if (me.mustChangePin || !['admin', 'marshal'].includes(me.role)) throw new Error('not staff');
+    renderTopbar('/board.html', me);
+    if (me.role === 'marshal' && !new URLSearchParams(location.search).get('rank')) {
+      rankId = me.rankId; // a marshal's rank screen opens on their own rank
+      if (s) render();
+    }
+  })
+  .catch(() => {
+    const bar = $('#topbar');
+    bar.className = 'sh';
+    bar.innerHTML = `<div class="sh-in">
+        <a class="sh-word" href="/" aria-label="Danki Driver, find a taxi">Danki <b>Driver</b></a>
+        <span class="sh-end"><button class="sh-btn sh-menu" id="menu-btn" type="button"></button>
+          <img src="/img/dankie-logo-128.jpg" width="36" height="36" alt="Dankie Driver, Benoni Taxi Association"></span>
+      </div>`;
+    mountMenu($('#menu-btn'));
+  });
+
+// On the wall the screen hides the header and fills the display; Esc or a tap on the button
+// brings it back.
+$('#b-full').addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen?.().catch(() => {});
+});
+document.addEventListener('fullscreenchange', () => {
+  document.body.classList.toggle('is-wall', !!document.fullscreenElement);
+  $('#b-full').textContent = document.fullscreenElement ? 'Leave full screen' : 'Full screen for the wall';
+});
 
 const params = new URLSearchParams(location.search);
 let rankId = Number(params.get('rank')) || local.get('board-rank');
