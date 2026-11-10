@@ -472,8 +472,8 @@ function allowApp(req, res) {
 const CSP = [
   "default-src 'self'",
   "script-src 'self' 'sha256-fMGC9cq7HoMARjUnLNzi6WaLxfVp0aITKZ2WWRoXCRY='",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self'",
   "img-src 'self' data: https://tile.openstreetmap.org",
   "connect-src 'self'",
   "object-src 'none'",

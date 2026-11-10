@@ -55,6 +55,8 @@ function toggleTheme() {
 
 // Each screen and who may open it. The server checks every request again; hiding a link is
 // only a convenience.
+const ROLE_NAME = { admin: 'Association office', marshal: 'Rank marshal', driver: 'Driver' };
+
 export const NAV = [
   ['/dashboard.html', 'Dashboard', ['admin']],
   ['/marshal.html', 'Marshal', ['admin', 'marshal']],
@@ -67,20 +69,32 @@ export const NAV = [
 
 const THEME_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg>`;
 
+/** A marshal's rank screens open on their own rank. */
+export function navHref(href, user) {
+  if (user?.role === 'marshal' && user.rankId && (href === '/marshal.html' || href === '/board.html')) return `${href}?rank=${user.rankId}`;
+  return href;
+}
+
 export function renderTopbar(active, user) {
   const el = document.getElementById('topbar');
   el.className = 'topbar';
   const links = NAV.filter(([, , roles]) => roles.includes(user?.role));
   el.innerHTML = `
-    <a class="brand" href="${homeFor(user)}">
-      <span class="brand-name">Benoni Taxi Association<small>Rank tracker</small></span></a>
-    <nav class="nav" aria-label="Screens">${links.map(([href, label]) => `<a href="${href}"${href === active ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
+    <a class="brand" href="${homeFor(user)}" aria-label="Danki Driver, ${esc(ROLE_NAME[user?.role] ?? 'staff')} home">
+      <span class="brand-name">Danki <b>Driver</b><small>${esc(ROLE_NAME[user?.role] ?? '')}</small></span></a>
+    <nav class="nav" aria-label="Screens">${links.map(([href, label]) => `<a href="${navHref(href, user)}"${href === active ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
     <div class="topbar-tools">
       ${user ? `<span class="who small">${esc(user.name)}</span><button class="btn sm quiet" id="sign-out" type="button">Sign out</button>` : ''}
       <button class="btn sm quiet" id="menu-btn" type="button" aria-haspopup="dialog">Menu</button>
       <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch between light and dark">${THEME_ICON}</button>
       <a class="brand-logo" href="/" title="Danki Driver, the passenger app"><img src="/img/dankie-logo-128.jpg" width="40" height="40" alt="Dankie Driver, Benoni Taxi Association" style="border-radius:50%"></a>
     </div>`;
+  // on a phone the screens scroll sideways: keep the current one in view, and drop the fade at the end
+  const nav = $('.nav', el);
+  const fade = () => nav.classList.toggle('at-end', nav.scrollLeft + nav.clientWidth >= nav.scrollWidth - 4);
+  nav.addEventListener('scroll', fade, { passive: true });
+  nav.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  fade();
   $('#theme-toggle').addEventListener('click', toggleTheme);
   $('#sign-out')?.addEventListener('click', signOut);
   import('./menu.js').then(({ mountMenu }) => mountMenu($('#menu-btn'), { user, current: active }));

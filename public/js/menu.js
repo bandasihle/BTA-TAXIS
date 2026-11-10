@@ -1,7 +1,7 @@
 // The app menu: the header's Menu button opens a sheet listing where this person can go,
 // who is signed in, and signing in or out. The server checks every screen again; the menu
 // only leaves out what a role can't open.
-import { esc, NAV, homeFor, signOut } from './common.js';
+import { esc, NAV, navHref, signOut } from './common.js';
 
 const ROLE = { admin: 'Association office', marshal: 'Rank marshal', driver: 'Driver' };
 const ICON = {
@@ -24,7 +24,7 @@ function items(user) {
   if (user?.role === 'driver') list.push(['/driver.html', 'Share my location', 'Start and stop sharing your taxi\'s position']);
   for (const [href, label, roles] of NAV) {
     if (!roles.includes(user?.role)) continue;
-    list.push([href === '/marshal.html' && user.role === 'marshal' ? homeFor(user) : href, label.replace('&amp;', '&'), '']);
+    list.push([navHref(href, user), label.replace('&amp;', '&'), '']);
   }
   return list;
 }

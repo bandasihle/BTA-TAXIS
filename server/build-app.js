@@ -24,8 +24,8 @@ function policy(html) {
   return [
     "default-src 'self'",
     `script-src 'self' ${hashes.join(' ')}`.trim(),
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'",
     "img-src 'self' data: https://tile.openstreetmap.org",
     `connect-src 'self' ${API}`,
     "object-src 'none'",

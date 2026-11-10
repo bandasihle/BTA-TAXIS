@@ -1,0 +1,153 @@
+/* Every staff screen in the Danki Driver look: the office (dashboard, ranks and routes, fares,
+   staff, home), the marshal screens and the rank board. Loads after app.css and slip-base.css.
+   app.css still lays the screens out; this file gives its tokens the logo's colours, swaps
+   its Barlow fonts for the system face and the bundled mono, and draws the blue header with
+   the livery stripe that the passenger and driver screens have. */
+
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #eceef2;
+  --line: rgba(12, 26, 75, 0.12);
+  --line-strong: rgba(12, 26, 75, 0.32);
+  --ink: #0c1a4b;
+  --ink-2: #4b5565;
+  --ink-3: #6b7280;
+  --accent: #0144b7;
+  --accent-deep: #022d84;
+  --on-accent: #ffffff;
+  --accent-text: #0144b7;
+  --go: #0b6e35;
+  --wait: #0d7480;
+  --stop: #c01822;
+  --plate-bg: #fbfbf6;
+  --plate-ink: #0c1a4b;
+  --focus: #0144b7;
+  --shadow: none;
+  --lift: 0 1px 2px rgba(10, 14, 30, 0.05), 0 8px 24px rgba(10, 14, 30, 0.06);
+  --font: var(--ui);
+  --font-cond: var(--mono);
+  --r-s: 10px;
+  --r-l: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0b0d14; --surface: #11141c; --surface-2: #1a1e28;
+    --line: rgba(238, 240, 245, 0.10); --line-strong: rgba(238, 240, 245, 0.28);
+    --ink: #eef0f5; --ink-2: #a3a9b8; --ink-3: #8a91a3;
+    --accent: #5b8cff; --accent-deep: #3f74f2; --on-accent: #07080d; --accent-text: #8fb0ff;
+    --go: #4cc38a; --wait: #4cc3d4; --stop: #e5484d; --plate-bg: #f1f1ea; --plate-ink: #0c1a4b;
+    --focus: #8fb0ff; --lift: none;
+  }
+}
+:root[data-theme='dark'] {
+  --bg: #0b0d14; --surface: #11141c; --surface-2: #1a1e28;
+  --line: rgba(238, 240, 245, 0.10); --line-strong: rgba(238, 240, 245, 0.28);
+  --ink: #eef0f5; --ink-2: #a3a9b8; --ink-3: #8a91a3;
+  --accent: #5b8cff; --accent-deep: #3f74f2; --on-accent: #07080d; --accent-text: #8fb0ff;
+  --go: #4cc38a; --wait: #4cc3d4; --stop: #e5484d; --plate-bg: #f1f1ea; --plate-ink: #0c1a4b;
+  --focus: #8fb0ff; --lift: none;
+}
+
+body { font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------------ header: the blue bar
+   with the livery stripe, as on the passenger screens */
+
+.topbar {
+  border-top: 0; border-bottom: 0; background: #0144b7; color: #fff;
+}
+.topbar::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -5px; height: 5px;
+  background: linear-gradient(#d71f2b 0 3px, #fff 3px 5px); pointer-events: none;
+}
+.brand-name { color: #fff; font-weight: 600; }
+.brand-name small { color: #c9d8ff; font-weight: 400; }
+.topbar .who { color: #c9d8ff; }
+.topbar .btn.quiet { color: #fff; font-weight: 500; }
+.topbar .btn.quiet:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.topbar .icon-btn { background: transparent; border-color: rgba(255, 255, 255, 0.35); color: #fff; border-radius: 8px; }
+.topbar .icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.brand-logo img { padding: 0; background: none; width: 36px; height: 36px; }
+.nav a { color: #c9d8ff; }
+.nav a:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.nav a[aria-current='page'] { color: #fff; box-shadow: inset 0 -3px 0 #fff; }
+.topbar :focus-visible { outline-color: #fff; }
+@media (max-width: 760px) {
+  .nav { border-top: 1px solid rgba(255, 255, 255, 0.16); }
+}
+
+/* ------------------------------------------------------------------ controls */
+
+.btn { border: 1px solid var(--line-strong); border-radius: 10px; font-weight: 500; transition: background-color 0.15s var(--ease), transform 0.12s var(--ease); }
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn.primary, .btn.go { font-weight: 600; }
+.btn.go:hover { filter: none; background: #095c2c; border-color: #095c2c; }
+.btn.sm { border-radius: 8px; }
+.btn.quiet { border-color: transparent; }
+.field { gap: 8px; font-weight: 500; }
+.input, select.input, textarea.input { border: 1px solid var(--line-strong); border-radius: 10px; font-weight: 400; }
+.input:focus-visible { outline: 0; border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus); }
+.hint { border: 0; border-radius: 10px; background: var(--surface-2); color: var(--ink-2); padding: 12px 16px; }
+.guess { font-family: var(--mono); font-weight: 400; color: var(--ink-3); border-color: var(--line-strong); border-radius: 4px; padding: 0 6px; }
+
+/* a South African plate: printed letters on cream, ink border */
+.plate { font-family: var(--mono); font-weight: 600; letter-spacing: 0.04em; border: 1.5px solid var(--plate-ink); border-radius: 4px; padding: 2px 8px 1px; line-height: 1.3; }
+.plate.lg { font-size: 26px; padding: 4px 12px 2px; border-width: 2px; border-radius: 6px; }
+
+/* ------------------------------------------------------------------ dialog and toasts */
+
+dialog { border-radius: 16px; box-shadow: var(--lift); }
+dialog::backdrop { background: rgba(10, 14, 30, 0.45); }
+.dialog-body { gap: 16px; }
+.dialog-body h2 { font-family: var(--ui); font-size: 20px; font-weight: 500; line-height: 1.2; }
+.dialog-actions { gap: 8px; }
+.toast { border-radius: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .tab { transition: none; }
+}
+
+
+/* ------------------------------------------------------------------ header: wordmark, role, nav */
+
+.brand-name { font-size: 18px; flex-direction: row; align-items: baseline; gap: 6px; }
+.brand-name b { font-weight: 400; color: #c9d8ff; }
+.brand-name small { font-size: 13px; color: #c9d8ff; font-weight: 400; margin-left: 4px; }
+.nav a { min-height: 44px; display: inline-flex; align-items: center; }
+@media (max-width: 760px) {
+  .topbar { padding: 8px 16px 0; }
+  .brand-name small { display: inline; }
+  /* the Menu has who is signed in and Sign out; on a phone the bar keeps only the essentials */
+  .topbar .who, .topbar #sign-out { display: none; }
+  /* the screens scroll sideways; the fade shows there is more */
+  .nav { -webkit-mask: linear-gradient(90deg, #000 85%, transparent); mask: linear-gradient(90deg, #000 85%, transparent); scroll-padding: 0 48px; }
+  .nav.at-end { -webkit-mask: none; mask: none; }
+}
+
+/* ------------------------------------------------------------------ type: system face for words, mono for figures */
+
+h1, .users h1, .m-rank, .home h1, .signin-card h1 { font-family: var(--ui); font-weight: 600; letter-spacing: -0.01em; }
+.users h1 { font-size: 30px; line-height: 1.15; }
+.home h1 { font-size: clamp(30px, 7vw, 48px); line-height: 1.1; }
+.signin-card h1 { font-size: 26px; line-height: 1.15; }
+.dialog-body h2 { font-family: var(--ui); }
+.chip b, .tab .count, .row .pos, .rank-pin .label b, .pin-reveal { font-family: var(--mono); font-weight: 600; }
+.chip { border-radius: 10px; }
+.section-title { font-weight: 500; }
+.user-row, .users-add { border-radius: 12px; box-shadow: none; }
+.leaflet-container { font-family: var(--ui); }
+
+/* ------------------------------------------------------------------ the rank board: on a wall, always dark, in navy */
+
+.board-page { --accent: #8fb0ff; --line: #24346f; background: #0c1a4b; color: #fff; }
+.board-page .board-head { border-bottom: 0; position: relative; padding-bottom: 20px; }
+.board-page .board-head::after { content: ''; position: absolute; left: 0; right: 0; bottom: -5px; height: 5px; background: var(--livery); }
+.board-head h1, .board-row .to { font-family: var(--ui); font-weight: 600; letter-spacing: -0.01em; }
+.board-head .clock { font-family: var(--mono); font-weight: 600; }
+.board-logo { border-radius: 12px; }
+.board-sub, .board-none, .board-row .to small, .board-row .then, .board-empty, .board-foot, .arrivals { color: #c9d8ff; }
+.board-row { border-bottom-color: #24346f; }
+.board-row .state .seatsline i { background: #24346f; }
+.board-foot select { background: #10225f; border-color: #24346f; }
