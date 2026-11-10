@@ -10,7 +10,7 @@
 // Ranks and fares come from the server (admins edit them in the app). The last copy is kept
 // on the phone, so fares still show with no signal.
 
-import { lookup, buildDirectory, priceLabel, timeLabel, runningNow, saMinutes } from './fares.js';
+import { lookup, buildDirectory, priceLabel, timeLabel, dayLabel, runningNow, saMinutes } from './fares.js';
 import { esc, local, registerServiceWorker, connect, api } from './common.js';
 import { mountMenu } from './menu.js';
 
@@ -168,6 +168,7 @@ function fares(province, region, rank) {
   }
   return `<h1>${esc(rank.name)}</h1>
     <p class="dk-lede">${esc(region.name)}, ${esc(province.name)}</p>
+    <p class="dk-hold" data-holding hidden>The rank is full of taxis. More are waiting in the holding area.</p>
     <ul class="dk-fares" aria-label="Taxis from ${esc(from)}">
       ${rank.destinations.map((d, i) => `
         <li class="dk-fare" data-i="${i}">
@@ -177,12 +178,23 @@ function fares(province, region, rank) {
             <span class="dk-when"><span class="dk-time">${hoursLabel(d)}</span><span class="dk-open" data-open></span></span>
           </button>
           <div class="dk-live"><span class="dk-load" data-load></span></div>
+          ${d.next ? `<p class="dk-next">${esc(nextLabel(d))}</p>` : ''}
         </li>`).join('')}
     </ul>
+    <p class="dk-small">Taxis leave when they are full, not at set times. The hours show the first and the last taxi.</p>
     ${rank.exact ? '' : '<p class="dk-small">The pin shows the area. The exact rank spot still needs to be marked.</p>'}`;
 }
 
 const hoursLabel = (d) => `${timeLabel(d.from)} – ${timeLabel(d.until)}`;
+
+/** The fare change the association has announced: "R23 from 1 Dec", with new hours when they change too. */
+function nextLabel(d) {
+  const n = d.next;
+  const parts = [];
+  if (n.price !== d.price) parts.push(priceLabel(n.price));
+  if (n.from !== d.from || n.until !== d.until) parts.push(hoursLabel(n));
+  return `${parts.join(', ') || priceLabel(n.price)} from ${dayLabel(n.startsOn)}`;
+}
 
 function crumbs(province, region, rank) {
   const parts = [];
@@ -259,6 +271,8 @@ function seatBar(seats, capacity) {
 function updateLive() {
   const { rank } = current;
   if (!rank) return;
+  const hold = view.querySelector('[data-holding]');
+  if (hold) hold.hidden = !snap?.rankById.get(rank.dbId)?.holding;
   const now = saMinutes();
   const ls = links();
   rank.destinations.forEach((d, i) => {
@@ -278,7 +292,7 @@ function updateLive() {
     const taxi = front && snap.taxiById.get(front.taxiId);
     if (!taxi) return void (load.textContent = 'No taxi loading yet');
     const full = front.seats >= taxi.capacity;
-    load.innerHTML = `${seatBar(front.seats, taxi.capacity)}<span>${full ? 'Full, leaving now' : `Loading: ${front.seats} of ${taxi.capacity} seats filled`}</span>`;
+    load.innerHTML = `${seatBar(front.seats, taxi.capacity)}<span>${full ? 'Full, leaving now' : `Loading: ${front.seats} of ${taxi.capacity} seats, leaves when full`}</span>`;
   });
   if (slipIndex >= 0) fillSlip(slipIndex);
 }
@@ -420,6 +434,8 @@ function fillSlip(i) {
   $slip('from').textContent = `From ${shortName(rank)}`;
   $slip('price').textContent = priceLabel(d.price);
   $slip('hours').textContent = hoursLabel(d);
+  $slip('next').textContent = d.next ? nextLabel(d) : '';
+  $slip('next').hidden = $slip('next-label').hidden = !d.next;
   const open = row?.querySelector('[data-open]');
   $slip('now').innerHTML = open?.textContent ? `<span class="${open.className}">${esc(open.textContent)}</span>` : '';
   $slip('load').innerHTML = row?.querySelector('[data-load]')?.innerHTML || (runningNow(d, saMinutes()).open ? 'Not known yet' : 'No taxis now');
@@ -491,7 +507,8 @@ connect({
   pos: true,
   onSnapshot(s) {
     snap = s;
-    const data = { ranks: s.ranks, routes: s.routes, fares: s.fares };
+    // "holding area in use" comes and goes through the day: it is read live, not kept in the directory
+    const data = { ranks: s.ranks.map(({ holding, ...r }) => r), routes: s.routes, fares: s.fares, fareChanges: s.fareChanges ?? [] };
     const changed = !loaded || JSON.stringify(data) !== JSON.stringify(lastData ?? cached);
     lastData = data;
     if (changed) {

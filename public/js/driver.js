@@ -31,6 +31,7 @@ addEventListener('scroll', () => {
 
 let info = null;
 let taxiStatus = null;
+let holdAt = null;
 let stopWatch = null;
 let wakeLock = null;
 let lastSent = 0;
@@ -65,6 +66,7 @@ function render() {
       <h1 class="dv-plate">${esc(info.taxi.plate)}</h1>
       <span class="st ${STATUS_TONE[taxiStatus] ?? ''}">${esc(STATUS_TEXT[taxiStatus] ?? 'Status unknown')}</span>
     </div>
+    ${holdAt ? `<p class="dv-hold" role="status"><b>${esc(holdAt)} is full.</b> ${taxiStatus === 'EN_ROUTE' ? 'When you arrive, wait' : 'Wait'} in the holding area until the marshal calls you.</p>` : ''}
     <button class="dv-go${on ? ' is-on' : ''}" type="button" id="toggle">${on ? 'Stop sharing my location' : 'Start sharing my location'}</button>
     <section class="dv-slip slip-paper" aria-label="Location sharing">
       <span class="slip-label">Location sharing</span>
@@ -195,8 +197,14 @@ document.addEventListener('visibilitychange', () => {
 connect({
   onSnapshot(s) {
     const t = info?.taxi && s.taxiById.get(info.taxi.id);
-    if (t && t.status !== taxiStatus) {
+    if (!t) return;
+    // the rank this taxi is waiting at or driving to, when its marshal says it is full
+    const rank = t.status === 'ARRIVED' ? s.rankById.get(t.rankId)
+      : t.status === 'EN_ROUTE' ? s.rankById.get(s.routeById.get(s.tripById.get(t.tripId)?.routeId)?.toRankId) : null;
+    const hold = rank?.holding ? rank.name : null;
+    if (t.status !== taxiStatus || hold !== holdAt) {
       taxiStatus = t.status;
+      holdAt = hold;
       if (info.consented) render();
     }
   },

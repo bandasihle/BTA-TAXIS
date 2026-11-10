@@ -157,3 +157,38 @@ dialog::backdrop { background: rgba(10, 14, 30, 0.45); }
 @media (prefers-reduced-motion: reduce) {
   .btn, .tab { transition: none; }
 }
+
+/* ------------------------------------------------------------------ holding area */
+
+.m-hold { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 12px; }
+.m-hold .btn { min-height: 44px; }
+.m-hold.is-on { padding: 12px 16px; margin-bottom: 12px; border-radius: 12px; background: var(--surface-2); box-shadow: inset 4px 0 0 var(--stop); justify-content: space-between; }
+.m-hold.is-on p { flex: 1 1 220px; font-size: 15px; color: var(--ink); }
+
+/* ------------------------------------------------------------------ fares and rank spot (rank.html) */
+
+.rk-back { align-self: flex-start; min-height: 44px; display: inline-flex; align-items: center; color: var(--accent-text); font-weight: 500; text-underline-offset: 3px; }
+.rk .m-head .muted { font-size: 15px; max-width: 56ch; }
+.rk-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.rk-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.rk-main { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.rk-main b { font-size: 17px; font-weight: 600; }
+.rk-fare { font-family: var(--mono); font-size: 15px; color: var(--ink); }
+.rk-row .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.rk-row .btn, .rk-spot .btn { min-height: 44px; }
+.rk-note, .rk-wait, .rk-no { font-size: 14px; padding-left: 12px; box-shadow: inset 3px 0 0 var(--line-strong); color: var(--ink-2); }
+.rk-wait { box-shadow: inset 3px 0 0 var(--wait); color: var(--ink); }
+.rk-wait small { display: block; font-size: 13px; color: var(--ink-3); }
+.rk-no { box-shadow: inset 3px 0 0 var(--stop); color: var(--ink); }
+.rk-add { margin-top: 16px; min-height: 48px; }
+.rk-spot { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding-bottom: 48px; }
+.rk-spot > h2 { padding-bottom: 0; }
+.rk-spot .small { max-width: 56ch; }
+.rk-mark { min-height: 52px; font-size: 16px; }
+.rk-status:empty { display: none; }
+.rk-status.warn, .rk-error { color: var(--stop); font-weight: 500; font-size: 15px; }
+.rk-error:empty { display: none; }
+.rk-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rk-start { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.rk-start legend { padding: 0 0 8px; font-weight: 500; }
+.rk-start .check { font-weight: 400; min-height: 32px; }

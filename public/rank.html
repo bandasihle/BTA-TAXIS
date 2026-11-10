@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Fares and rank spot | Danki Driver</title>
+  <meta name="theme-color" content="#0144b7">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/img/icon-192.png" type="image/png">
+  <link rel="preload" href="/fonts/spline-sans-mono-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/slip-base.css">
+  <link rel="stylesheet" href="/css/marshal.css">
+  <script>try{var t=localStorage.getItem('bta:theme');if(t)document.documentElement.dataset.theme=JSON.parse(t)}catch(e){}</script>
+</head>
+<body>
+  <header id="topbar"></header>
+  <main class="marshal rk" id="app"><p class="muted" style="padding:24px 0">Loading your rank…</p></main>
+
+  <dialog id="fare-dlg" aria-labelledby="fd-title">
+    <form class="dialog-body" id="fare-form" novalidate>
+      <h2 id="fd-title">Fare</h2>
+      <p class="small muted" id="fd-now"></p>
+      <label class="field" id="fd-to-wrap">Destination
+        <select class="input" id="fd-to"></select>
+      </label>
+      <div class="rk-pair">
+        <label class="field">First taxi <input class="input" type="time" id="fd-from" step="60" required></label>
+        <label class="field">Last taxi <input class="input" type="time" id="fd-until" step="60" required></label>
+      </div>
+      <label class="check"><input type="checkbox" id="fd-midnight"> The last taxi leaves at midnight</label>
+      <label class="field">Price in rand
+        <input class="input" type="number" id="fd-price" min="0.5" max="2000" step="0.5" inputmode="decimal" placeholder="For example 25" required>
+      </label>
+      <fieldset class="rk-start">
+        <legend>When does it start?</legend>
+        <label class="check"><input type="radio" name="start" value="now" checked> As soon as the office approves</label>
+        <label class="check"><input type="radio" name="start" value="date"> On a date, so passengers get notice</label>
+        <input class="input" type="date" id="fd-date" aria-label="Start date" hidden>
+      </fieldset>
+      <p class="rk-error" id="fd-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button class="btn quiet" type="button" id="fd-cancel">Cancel</button>
+        <button class="btn primary" type="submit" id="fd-submit">Send to the office</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="/js/rank.js"></script>
+</body>
+</html>

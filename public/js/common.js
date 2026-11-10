@@ -58,6 +58,7 @@ function toggleTheme() {
 export const NAV = [
   ['/dashboard.html', 'Dashboard', ['admin']],
   ['/marshal.html', 'Marshal', ['admin', 'marshal']],
+  ['/rank.html', 'Fares &amp; rank spot', ['marshal']],
   ['/board.html', 'Rank screen', ['admin', 'marshal']],
   ['/editor.html', 'Ranks &amp; routes', ['admin']],
   ['/fares.html', 'Fares', ['admin']],

@@ -87,6 +87,7 @@ async function firstSnapshot(p, headers = {}) {
 }
 
 let adminCookie;
+let marshalCookie;
 let ranks;
 
 test('the first admin must choose a new PIN before doing anything', async () => {
@@ -157,6 +158,7 @@ test('marshals work only their own rank, and cannot touch ranks, routes or staff
   const first = await webLogin('0822222222', temp);
   await call('POST', '/api/me/pin', { cookie: first, body: { oldPin: temp, newPin: '582047' } });
   const marshal = first;
+  marshalCookie = first;
 
   // a taxi registered by the marshal is homed at the marshal's rank, whatever the phone says
   const taxi = await call('POST', '/api/taxis', { cookie: marshal, body: { plate: 'MA 12 RS GP', homeRankId: daveyton.id } });
@@ -178,6 +180,70 @@ test('marshals work only their own rank, and cannot touch ranks, routes or staff
 
   const history = await call('GET', `/api/taxis/${taxi.data.id}/history`, { cookie: marshal });
   assert.ok(history.data.events.every((e) => e.by === 'Marshal Etwatwa'), 'who did it comes from the session, not the request');
+});
+
+test('marshals ask for fares and the spot of their rank; only an admin decides', async () => {
+  const etwatwa = ranks.find((r) => r.name === 'Etwatwa Las Vegas');
+  const daveyton = ranks.find((r) => r.name === 'Daveyton');
+  const fare = { toRankId: daveyton.id, from: '04:00', until: '24:00', price: 25 };
+  const spot = { lat: etwatwa.lat + 0.001, lng: etwatwa.lng, accuracy: 9 };
+
+  // signed out, and from another site
+  for (const [m, p, body] of [
+    ['POST', '/api/proposals/fare', fare],
+    ['POST', '/api/proposals/location', spot],
+    ['POST', '/api/proposals/1/decision', { approve: true }],
+    ['DELETE', '/api/proposals/1'],
+    ['PUT', `/api/ranks/${etwatwa.id}/holding`, { on: true }],
+    ['DELETE', '/api/routes/1/fare-change'],
+  ]) assert.equal((await call(m, p, { body })).status, 401, `${m} ${p}`);
+  assert.equal((await call('POST', '/api/proposals/fare', { cookie: marshalCookie, body: fare, origin: 'https://evil.example' })).status, 403, 'CSRF');
+
+  // an admin sets fares directly and has no rank to ask for
+  assert.equal((await call('POST', '/api/proposals/fare', { cookie: adminCookie, body: fare })).status, 403);
+  assert.equal((await call('POST', '/api/proposals/location', { cookie: adminCookie, body: spot })).status, 403);
+
+  const sent = await call('POST', '/api/proposals/fare', { cookie: marshalCookie, body: { ...fare, rankId: daveyton.id, by: 'Someone Else', status: 'APPROVED' } });
+  assert.equal(sent.status, 201, JSON.stringify(sent.data));
+  assert.equal((await call('POST', '/api/proposals/location', { cookie: marshalCookie, body: { ...spot, accuracy: 400 } })).status, 400);
+  assert.equal((await call('POST', '/api/proposals/location', { cookie: marshalCookie, body: spot })).status, 201);
+
+  const staff = (await firstSnapshot('/api/stream?staff=1', { Cookie: adminCookie })).snap;
+  const open = staff.proposals.filter((p) => p.status === 'PENDING');
+  assert.equal(open.length, 2);
+  assert.ok(open.every((p) => p.rankId === etwatwa.id && p.by === 'Marshal Etwatwa'), 'the rank and the name come from the session');
+  const pub = (await call('GET', '/api/snapshot')).data;
+  assert.deepEqual(pub.proposals, [], 'passengers never see requests');
+  const route = pub.routes.find((r) => r.fromRankId === etwatwa.id && r.toRankId === daveyton.id);
+  assert.equal(pub.fares.find((f) => f.routeId === route.id).price, 20, 'the fare has not changed');
+  assert.equal(pub.ranks.find((r) => r.id === etwatwa.id).lat, etwatwa.lat, 'the pin has not moved');
+
+  // a marshal cannot approve, not even their own
+  for (const p of open) assert.equal((await call('POST', `/api/proposals/${p.id}/decision`, { cookie: marshalCookie, body: { approve: true } })).status, 403);
+  assert.equal((await call('PUT', `/api/routes/${route.id}/fare`, { cookie: marshalCookie, body: fare })).status, 403);
+  assert.equal((await call('DELETE', `/api/routes/${route.id}/fare-change`, { cookie: marshalCookie })).status, 403);
+
+  const fareAsk = open.find((p) => p.kind === 'FARE');
+  const spotAsk = open.find((p) => p.kind === 'LOCATION');
+  assert.equal((await call('POST', `/api/proposals/${fareAsk.id}/decision`, { cookie: adminCookie, body: { approve: false, reason: 'x'.repeat(201) } })).status, 400);
+  assert.equal((await call('POST', `/api/proposals/${fareAsk.id}/decision`, { cookie: adminCookie, body: { approve: false, reason: 'Not agreed' } })).status, 200);
+  assert.equal((await call('POST', `/api/proposals/${fareAsk.id}/decision`, { cookie: adminCookie, body: { approve: true } })).status, 409, 'decided once');
+  assert.equal((await call('DELETE', `/api/proposals/${spotAsk.id}`, { cookie: marshalCookie })).status, 200);
+  assert.equal((await call('POST', `/api/proposals/${spotAsk.id}/decision`, { cookie: adminCookie, body: { approve: true } })).status, 409, 'taken back');
+  assert.equal((await call('GET', '/api/snapshot')).data.ranks.find((r) => r.id === etwatwa.id).lat, etwatwa.lat);
+});
+
+test('holding area: the marshal at that rank or an admin; passengers and drivers see it', async () => {
+  const etwatwa = ranks.find((r) => r.name === 'Etwatwa Las Vegas');
+  const daveyton = ranks.find((r) => r.name === 'Daveyton');
+  const holding = async (id) => (await call('GET', '/api/snapshot')).data.ranks.find((r) => r.id === id).holding;
+  assert.equal((await call('PUT', `/api/ranks/${daveyton.id}/holding`, { cookie: marshalCookie, body: { on: true } })).status, 403, 'not another rank');
+  assert.equal(await holding(daveyton.id), false);
+  assert.equal((await call('PUT', `/api/ranks/${etwatwa.id}/holding`, { cookie: marshalCookie, body: { on: 'true' } })).status, 400);
+  assert.equal((await call('PUT', `/api/ranks/${etwatwa.id}/holding`, { cookie: marshalCookie, body: { on: true } })).status, 200);
+  assert.equal(await holding(etwatwa.id), true);
+  assert.equal((await call('PUT', `/api/ranks/${etwatwa.id}/holding`, { cookie: adminCookie, body: { on: false } })).status, 200);
+  assert.equal(await holding(etwatwa.id), false);
 });
 
 test('passengers get the public stream; the staff stream needs a staff sign-in', async () => {

@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { openDb, DEFAULT_DB } from './db.js';
-import { createStore, HttpError } from './store.js';
+import { createStore, HttpError, toId } from './store.js';
 import { createAuth } from './auth.js';
 import { PositionSource } from './positions.js';
 import { CONSENT_VERSION } from '../public/js/consent.js';
@@ -22,6 +22,9 @@ if (store.isEmpty()) seed(store);
 const auth = createAuth(db);
 const positions = new PositionSource(store);
 setInterval(() => positions.sweep(), 60_000).unref();
+// Planned fare changes become the fare on their day.
+store.applyDueFares();
+setInterval(() => store.applyDueFares(), 60_000).unref();
 
 // The first admin, when there are no accounts yet: from secret environment variables (on a
 // host with no shell), or with `npm run create-admin` on the machine itself.
@@ -346,6 +349,37 @@ async function api(req, res, url) {
     if (m === 'PUT') return json(res, 200, store.setFare(match[1], await readBody(req), user.name));
     return json(res, 200, store.deleteFare(match[1], user.name));
   }
+  if (m === 'DELETE' && (match = p.match(/^\/api\/routes\/(\d+)\/fare-change$/))) {
+    const user = need(req, ['admin']);
+    return json(res, 200, store.cancelFareChange(match[1], user.name));
+  }
+
+  // requests: a marshal asks for a fare or the rank's spot at their own rank (the rank comes
+  // from their session, never from the phone); only an admin's decision changes what
+  // passengers see
+  if (m === 'POST' && p === '/api/proposals/fare') {
+    const user = need(req, ['marshal']);
+    return json(res, 201, store.proposeFare(user, await readBody(req)));
+  }
+  if (m === 'POST' && p === '/api/proposals/location') {
+    const user = need(req, ['marshal']);
+    return json(res, 201, store.proposeLocation(user, await readBody(req)));
+  }
+  if (m === 'DELETE' && (match = p.match(/^\/api\/proposals\/(\d+)$/))) {
+    const user = need(req, ['marshal']);
+    return json(res, 200, store.withdrawProposal(match[1], user));
+  }
+  if (m === 'POST' && (match = p.match(/^\/api\/proposals\/(\d+)\/decision$/))) {
+    const user = need(req, ['admin']);
+    return json(res, 200, store.decideProposal(match[1], user, await readBody(req)));
+  }
+
+  // holding area: the marshal at that rank, or an admin
+  if (m === 'PUT' && (match = p.match(/^\/api\/ranks\/(\d+)\/holding$/))) {
+    const user = need(req, STAFF);
+    needRank(user, toId(match[1]));
+    return json(res, 200, store.setHolding(match[1], (await readBody(req)).on, user.name));
+  }
 
   // staff accounts: admins. A new or reset PIN is shown once, to the admin, and never stored in plain text.
   if (m === 'GET' && p === '/api/users') {
@@ -379,7 +413,7 @@ async function api(req, res, url) {
 
 const PAGES = {
   '/': 'index.html', '/staff': 'staff.html', '/marshal': 'marshal.html', '/dashboard': 'dashboard.html',
-  '/editor': 'editor.html', '/board': 'board.html', '/login': 'login.html', '/users': 'users.html', '/fares': 'fares.html',
+  '/editor': 'editor.html', '/board': 'board.html', '/login': 'login.html', '/users': 'users.html', '/fares': 'fares.html', '/rank': 'rank.html',
   '/driver': 'driver.html',
 };
 const TYPES = {

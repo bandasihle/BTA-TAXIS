@@ -1,7 +1,7 @@
 // Fares (admins only; the server checks too): for each rank, the destinations passengers can
 // take, the hours taxis run and the price. A route without a fare is not shown to passengers.
-import { $, esc, local, api, toast, busy, confirmDialog, renderTopbar, requireStaff, connect, clockTime, ago } from './common.js';
-import { PROVINCES, priceLabel } from './fares.js';
+import { $, esc, local, api, toast, busy, confirmDialog, renderTopbar, requireStaff, connect, clockTime, ago, clock } from './common.js';
+import { PROVINCES, priceLabel, dayLabel } from './fares.js';
 
 const me = await requireStaff(['admin']);
 renderTopbar('/fares.html', me);
@@ -12,6 +12,103 @@ let rankId = local.get('fares-rank');
 const dirty = new Set(); // rows with unsaved edits are left alone when new data arrives
 
 const fareOf = (routeId) => s.fares.find((f) => f.routeId === routeId);
+const plannedOf = (routeId) => s.fareChanges.find((c) => c.routeId === routeId);
+const fareLine = (f) => `${priceLabel(f.price)}, ${f.from} to ${f.until === '24:00' ? 'midnight' : f.until}`;
+const DAY_MS = 86_400_000;
+const saDay = (ms) => new Date(ms + 2 * 3_600_000).toISOString().slice(0, 10); // South African date
+
+function distanceKm([lat1, lng1], [lat2, lng2]) {
+  const rad = (d) => (d * Math.PI) / 180;
+  const a = Math.sin(rad(lat2 - lat1) / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lng2 - lng1) / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(a));
+}
+
+// ------------------------------------------------------------------ what marshals sent
+
+function requestRow(p) {
+  const rank = s.rankName(p.rankId);
+  const sent = `Sent by ${esc(p.by)} ${esc(ago(p.at))}`;
+  let title;
+  let lines;
+  if (p.kind === 'FARE') {
+    const route = s.routes.find((r) => r.fromRankId === p.rankId && r.toRankId === p.toRankId);
+    const now = route && fareOf(route.id);
+    const diff = now ? p.price - now.price : 0;
+    title = `${esc(rank)} to ${esc(s.rankName(p.toRankId))}`;
+    lines = `<span class="req-what">${esc(fareLine(p))}${p.startsOn ? `, from ${esc(dayLabel(p.startsOn))}` : ''}</span>
+      <span class="small muted">${now ? `Passengers see ${esc(fareLine(now))} now${diff ? ` (${diff > 0 ? `${esc(priceLabel(diff))} more` : `${esc(priceLabel(-diff))} less`})` : ''}` : route ? 'No fare yet on this route' : 'A new destination from this rank'} · ${sent}</span>`;
+  } else {
+    const r = s.rankById.get(p.rankId);
+    const km = r ? distanceKm([r.lat, r.lng], [p.lat, p.lng]) : 0;
+    const far = km < 1 ? `${Math.max(1, Math.round(km * 1000))} m` : `${km.toFixed(1)} km`;
+    title = `${esc(rank)}: the rank's spot on the map`;
+    lines = `<span class="req-what">${far} from the pin now, accurate to about ${Math.round(p.accuracy)} m</span>
+      <span class="small muted"><a href="https://www.openstreetmap.org/?mlat=${p.lat}&amp;mlon=${p.lng}#map=18/${p.lat}/${p.lng}" target="_blank" rel="noopener noreferrer">See the spot on the map</a> · ${sent}</span>`;
+  }
+  return `<li class="user-row req-row" data-request="${p.id}">
+    <div class="user-main"><b>${title}</b>${lines}</div>
+    <div class="user-tools">
+      <button class="btn sm primary" type="button" data-decide="yes">Approve</button>
+      <button class="btn sm" type="button" data-decide="no">Decline</button>
+    </div>
+  </li>`;
+}
+
+function renderRequests() {
+  const open = s.proposals.filter((p) => p.status === 'PENDING' && s.rankById.has(p.rankId));
+  $('#requests').hidden = !open.length;
+  $('#request-list').innerHTML = open.map(requestRow).join('');
+}
+
+/** Asks why something is declined, so the marshal is told. Resolves with the text, or null when cancelled. */
+function reasonDialog(title) {
+  return new Promise((resolve) => {
+    const dlg = document.createElement('dialog');
+    dlg.innerHTML = `<form method="dialog" class="dialog-body">
+        <h2>${esc(title)}</h2>
+        <label class="field">Reason, shown to the marshal (optional)
+          <input class="input" name="reason" maxlength="200" autocomplete="off"></label>
+        <div class="dialog-actions">
+          <button class="btn quiet" value="no">Cancel</button>
+          <button class="btn danger" value="yes">Decline</button>
+        </div></form>`;
+    document.body.append(dlg);
+    dlg.addEventListener('close', () => {
+      resolve(dlg.returnValue === 'yes' ? dlg.querySelector('[name="reason"]').value.trim() : null);
+      dlg.remove();
+    });
+    dlg.showModal();
+  });
+}
+
+$('#request-list').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-decide]');
+  if (!b) return;
+  const id = Number(b.closest('[data-request]').dataset.request);
+  const p = s.proposals.find((x) => x.id === id);
+  if (!p) return;
+  const approve = b.dataset.decide === 'yes';
+  const what = p.kind === 'FARE' ? `${s.rankName(p.rankId)} to ${s.rankName(p.toRankId)}` : `the spot for ${s.rankName(p.rankId)}`;
+  let body;
+  if (approve) {
+    const text = p.kind === 'FARE'
+      ? `Passengers will see ${fareLine(p)} ${p.startsOn ? `from ${dayLabel(p.startsOn)}, with notice until then` : 'straight away'}.`
+      : 'The rank\'s pin moves to the spot the marshal marked, for passengers and staff.';
+    if (!(await confirmDialog(`Approve ${what}?`, text, 'Approve'))) return;
+    body = { approve: true };
+  } else {
+    const reason = await reasonDialog(`Decline ${what}?`);
+    if (reason == null) return;
+    body = { approve: false, reason };
+  }
+  await busy(b, async () => {
+    try {
+      toast((await api(`/api/proposals/${id}/decision`, { method: 'POST', body })).message);
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  });
+});
 
 function renderRankSelect() {
   const boarding = s.ranks.filter((r) => r.regionId);
@@ -26,16 +123,21 @@ function row(route) {
   const f = fareOf(route.id);
   const to = s.rankName(route.toRankId);
   const midnight = f?.until === '24:00';
+  const planned = plannedOf(route.id);
+  const t = clock.now();
   return `<li class="user-row fare-row" data-route="${route.id}">
     <div class="user-main">
       <b>To ${esc(to)}</b>
       <span class="small muted">${f ? `${priceLabel(f.price)}, ${esc(f.from)} to ${midnight ? 'midnight' : esc(f.until)}${f.updatedBy ? ` · set by ${esc(f.updatedBy)} ${esc(ago(f.updatedAt))}` : ''}` : 'Not shown to passengers yet'}</span>
+      ${planned ? `<span class="small req-planned">Changes to ${esc(fareLine(planned))} on ${esc(dayLabel(planned.startsOn))}. Passengers can see this.
+        <button class="btn sm quiet" type="button" data-cancel-change>Cancel the change</button></span>` : ''}
     </div>
     <form class="fare-form" novalidate>
       <label class="field">First taxi <input class="input" type="time" name="from" step="60" value="${esc(f?.from ?? '05:00')}" required></label>
       <label class="field">Last taxi <input class="input" type="time" name="until" step="60" value="${esc(midnight ? '23:59' : f?.until ?? '20:00')}"${midnight ? ' disabled' : ''} required></label>
       <label class="check small"><input type="checkbox" name="midnight"${midnight ? ' checked' : ''}> Until midnight</label>
       <label class="field">Price (R) <input class="input" type="number" name="price" min="0.5" max="2000" step="0.5" inputmode="decimal" value="${f ? f.price : ''}" placeholder="25" required></label>
+      <label class="field fare-start">Starts (empty: now) <input class="input" type="date" name="startsOn" min="${saDay(t + DAY_MS)}" max="${saDay(t + 90 * DAY_MS)}"></label>
       <div class="user-tools">
         <button class="btn sm primary" type="submit">${f ? 'Save' : 'Show to passengers'}</button>
         ${f ? '<button class="btn sm danger" type="button" data-remove>Stop showing</button>' : ''}
@@ -66,7 +168,7 @@ function render() {
     ? options.map((r) => `<option value="${r.id}">${esc(r.name)}</option>`).join('')
     : '<option value="">Every rank is already a destination</option>';
 
-  const log = s.events.filter((e) => e.type === 'FARE' && e.rankId === rank.id).slice(0, 20);
+  const log = s.events.filter((e) => (e.type === 'FARE' || e.type === 'RANK') && e.rankId === rank.id).slice(0, 20);
   $('#log').innerHTML = log.length
     ? log.map((e) => `<li><div class="event"><time datetime="${new Date(e.at).toISOString()}" title="${esc(ago(e.at))}">${clockTime(e.at)}</time>
         <span class="what"><span>${esc(e.detail)}</span></span><span class="by">${e.by ? `by ${esc(e.by)}` : ''}</span></div></li>`).join('')
@@ -78,6 +180,7 @@ connect({
   onSnapshot(snap) {
     const first = !s;
     s = snap;
+    renderRequests();
     if (first || !dirty.size) render();
   },
 });
@@ -103,6 +206,7 @@ $('#fares').addEventListener('submit', async (e) => {
     from: field('from').value,
     until: field('midnight').checked ? '24:00' : field('until').value,
     price: Number(field('price').value),
+    startsOn: field('startsOn').value || null,
   };
   await busy(e.submitter, async () => {
     try {
@@ -116,6 +220,19 @@ $('#fares').addEventListener('submit', async (e) => {
 });
 
 $('#fares').addEventListener('click', async (e) => {
+  const c = e.target.closest('[data-cancel-change]');
+  if (c) {
+    const routeId = c.closest('[data-route]').dataset.route;
+    const ok = await confirmDialog('Cancel the planned change?', `${s.routeLabel(Number(routeId))} keeps the fare it has now, and passengers no longer see the notice.`, 'Cancel the change', { danger: true });
+    if (!ok) return;
+    return void busy(c, async () => {
+      try {
+        toast((await api(`/api/routes/${routeId}/fare-change`, { method: 'DELETE' })).message);
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+  }
   const b = e.target.closest('[data-remove]');
   if (!b) return;
   const routeId = b.closest('[data-route]').dataset.route;

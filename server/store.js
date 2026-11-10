@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { checkTransition, STATUS, TransitionError } from './state.js';
-import { roadLine, lineLength } from './geo.js';
+import { roadLine, lineLength, haversineKm } from './geo.js';
 import { savedRoad, fetchRoad } from './roads.js';
 import { slugify } from './db.js';
 import { PROVINCES } from '../public/js/fares.js';
@@ -9,6 +9,21 @@ const REGION_IDS = new Set(PROVINCES.flatMap((p) => p.regions.map((r) => r.id)))
 const TIME = /^(([01]\d|2[0-3]):[0-5]\d|24:00)$/;
 const minutesOf = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
 const MAX_PRICE = 2000;
+
+// Fare notice: an approved fare can start on a later day, so passengers are told before it
+// changes. Days are South African dates (UTC+2 all year, no daylight saving).
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_MS = 86_400_000;
+const MAX_NOTICE_DAYS = 90;
+export const saDate = (ms) => new Date(ms + 2 * 3_600_000).toISOString().slice(0, 10);
+
+// A marshal marking the rank's spot must be standing at it with a good fix: the phone's
+// accuracy has to be this tight, and the spot this close to where the rank already is.
+const MAX_SPOT_ACCURACY_M = 50;
+const MAX_SPOT_MOVE_KM = 25;
+// "Rank full, use the holding area" is switched off by the marshal; a flag left on overnight
+// stops counting after this long.
+const HOLDING_MAX_MS = 12 * 3_600_000;
 
 export class HttpError extends Error {
   constructor(status, message) {
@@ -413,13 +428,8 @@ export function createStore(db, opts = {}) {
 
   // ---------------------------------------------------------------- fares
 
-  /**
-   * Sets the passenger fare on a route: the hours taxis run and the price. One fare per
-   * route. Every change goes in the event log with who made it and what it was before.
-   */
-  function setFare(routeId, input = {}, by = 'admin') {
-    const route = getRoute(routeId);
-    // exact types only: a list like ["04:00"] would otherwise slip through as text
+  /** The hours and price from a request, checked. Exact types only: a list like ["04:00"] would otherwise slip through as text. */
+  function validFare(input) {
     const from = typeof input.from === 'string' ? input.from : '';
     const until = typeof input.until === 'string' ? input.until : '';
     if (!TIME.test(from) || !TIME.test(until)) throw new HttpError(400, 'Times must look like 04:30. Use 24:00 for midnight.');
@@ -429,22 +439,95 @@ export function createStore(db, opts = {}) {
     if (!Number.isFinite(price) || price <= 0 || price > MAX_PRICE || Math.abs(cents - price * 100) > 1e-6) {
       throw new HttpError(400, `Enter the price in rand, more than 0 and up to R${MAX_PRICE}, like 25 or 12.50.`);
     }
-    const label = `${rankName(route.from_rank_id)} to ${rankName(route.to_rank_id)}`;
+    return { from_time: from, until_time: until, price_cents: cents };
+  }
+
+  /**
+   * The day a fare starts: null for "now" (nothing given, or today), or a South African date
+   * up to 90 days ahead. `lenient` turns a day that has passed into "now" (a request that
+   * waited for approval past its date); otherwise a past day is refused.
+   */
+  function validStart(value, { lenient = false } = {}) {
+    if (value == null || value === '') return null;
+    const real = typeof value === 'string' && DAY.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
+      && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+    if (!real) throw new HttpError(400, 'Choose a real start date.');
+    const today = saDate(now());
+    if (value === today || (lenient && value < today)) return null;
+    if (value < today) throw new HttpError(400, 'That start date has passed. Choose today or a later day.');
+    if (value > saDate(now() + MAX_NOTICE_DAYS * DAY_MS)) throw new HttpError(400, `Choose a start date in the next ${MAX_NOTICE_DAYS} days.`);
+    return value;
+  }
+
+  const fareText = (f) => `${f.from_time}–${f.until_time}, ${rand(f.price_cents)}`;
+  const routeLabel = (route) => `${rankName(route.from_rank_id)} to ${rankName(route.to_rank_id)}`;
+
+  /** Writes a checked fare: now, or as a planned change for `start`. Call inside tx(). */
+  function writeFare(route, fare, start, by, note = '') {
+    const label = routeLabel(route);
     const before = one('SELECT * FROM fares WHERE route_id = ?', route.id);
-    const text = (f) => `${f.from_time}–${f.until_time}, ${rand(f.price_cents)}`;
-    const after = { from_time: from, until_time: until, price_cents: cents };
-    if (before && text(before) === text(after)) return { message: 'Nothing to change' };
-    tx(() => {
+    if (start) {
       run(
-        `INSERT INTO fares (route_id, from_time, until_time, price_cents, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO fare_changes (route_id, from_time, until_time, price_cents, starts_on, set_at, set_by) VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (route_id) DO UPDATE SET from_time = excluded.from_time, until_time = excluded.until_time,
-           price_cents = excluded.price_cents, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
-        route.id, from, until, cents, now(), by,
+           price_cents = excluded.price_cents, starts_on = excluded.starts_on, set_at = excluded.set_at, set_by = excluded.set_by`,
+        route.id, fare.from_time, fare.until_time, fare.price_cents, start, now(), by,
       );
-      log(null, 'FARE', route.from_rank_id, route.id, by, before ? `${label}: ${text(before)} changed to ${text(after)}` : `${label}: fare set to ${text(after)}`);
+      log(null, 'FARE', route.from_rank_id, route.id, by, `${label}: ${before ? `${fareText(before)} changes to` : 'fare will be'} ${fareText(fare)} on ${start}${note}`);
+      return { message: `${label} will change on ${start}` };
+    }
+    if (before && fareText(before) === fareText(fare)) return { message: 'Nothing to change' };
+    run(
+      `INSERT INTO fares (route_id, from_time, until_time, price_cents, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (route_id) DO UPDATE SET from_time = excluded.from_time, until_time = excluded.until_time,
+         price_cents = excluded.price_cents, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
+      route.id, fare.from_time, fare.until_time, fare.price_cents, now(), by,
+    );
+    log(null, 'FARE', route.from_rank_id, route.id, by, `${label}: ${before ? `${fareText(before)} changed to ${fareText(fare)}` : `fare set to ${fareText(fare)}`}${note}`);
+    return { message: `${label} saved` };
+  }
+
+  /**
+   * Sets the passenger fare on a route: the hours taxis run and the price. One fare per
+   * route. With `startsOn` (a later day) the fare is kept as a planned change and passengers
+   * are shown the notice until that day. Every change goes in the event log with who made it
+   * and what it was before.
+   */
+  function setFare(routeId, input = {}, by = 'admin') {
+    const route = getRoute(routeId);
+    const fare = validFare(input);
+    const start = validStart(input.startsOn);
+    const result = tx(() => writeFare(route, fare, start, by));
+    changed();
+    return result;
+  }
+
+  /** Drops a planned fare change before its day. */
+  function cancelFareChange(routeId, by = 'admin') {
+    const route = getRoute(routeId);
+    const planned = one('SELECT * FROM fare_changes WHERE route_id = ?', route.id);
+    if (!planned) throw new HttpError(404, 'That route has no planned fare change.');
+    tx(() => {
+      run('DELETE FROM fare_changes WHERE route_id = ?', route.id);
+      log(null, 'FARE', route.from_rank_id, route.id, by, `${routeLabel(route)}: planned change to ${fareText(planned)} on ${planned.starts_on} cancelled`);
     });
     changed();
-    return { message: `${label} saved` };
+    return { message: `${routeLabel(route)} keeps its fare` };
+  }
+
+  /** Makes planned fares the fare once their day has come. The server runs this every minute. */
+  function applyDueFares() {
+    const due = all('SELECT * FROM fare_changes WHERE starts_on <= ? ORDER BY route_id', saDate(now()));
+    if (!due.length) return 0;
+    tx(() => {
+      for (const c of due) {
+        const route = one('SELECT * FROM routes WHERE id = ?', c.route_id);
+        run('DELETE FROM fare_changes WHERE route_id = ?', c.route_id);
+        if (route) writeFare(route, c, null, c.set_by ?? 'admin', ' (planned change)');
+      }
+    });
+    changed();
+    return due.length;
   }
 
   function deleteFare(routeId, by = 'admin') {
@@ -454,10 +537,153 @@ export function createStore(db, opts = {}) {
     const label = `${rankName(route.from_rank_id)} to ${rankName(route.to_rank_id)}`;
     tx(() => {
       run('DELETE FROM fares WHERE route_id = ?', route.id);
+      run('DELETE FROM fare_changes WHERE route_id = ?', route.id);
       log(null, 'FARE', route.from_rank_id, route.id, by, `${label}: fare removed (was ${before.from_time}–${before.until_time}, ${rand(before.price_cents)})`);
     });
     changed();
     return { message: `${label} is no longer shown to passengers` };
+  }
+
+  // ---------------------------------------------------------------- requests (a marshal asks, the office decides)
+
+  const getProposal = byId('proposals', 'request');
+
+  /** The marshal's own rank, from their session. A marshal with no rank can't ask for anything. */
+  function marshalRank(user) {
+    const id = toId(user?.rankId);
+    const rank = id && one('SELECT * FROM ranks WHERE id = ?', id);
+    if (!rank) throw new HttpError(403, 'Your account is not linked to a rank. Ask the office to set your rank.');
+    return rank;
+  }
+
+  /** One open request per thing: a marshal replaces their own, and can't overwrite a colleague's. */
+  function openRequest(user, where, ...params) {
+    const open = one(`SELECT * FROM proposals WHERE status = 'PENDING' AND ${where}`, ...params);
+    if (open && open.proposed_by_id !== user.id) {
+      throw new HttpError(409, `${open.proposed_by} already sent this to the office. It must be decided first.`);
+    }
+    return open;
+  }
+
+  /**
+   * A marshal asks for a fare from their own rank to a destination: hours, price and the day
+   * it starts. Passengers see nothing until an admin approves it.
+   */
+  function proposeFare(user, input = {}) {
+    const rank = marshalRank(user);
+    const to = getRank(input.toRankId);
+    if (to.id === rank.id) throw new HttpError(400, 'Choose a destination other than your own rank.');
+    const fare = validFare(input);
+    const start = validStart(input.startsOn);
+    const route = one('SELECT * FROM routes WHERE from_rank_id = ? AND to_rank_id = ?', rank.id, to.id);
+    const live = route && one('SELECT * FROM fares WHERE route_id = ?', route.id);
+    if (live && !start && fareText(live) === fareText(fare)) throw new HttpError(409, 'That is already the fare passengers see.');
+    tx(() => {
+      const open = openRequest(user, `kind = 'FARE' AND rank_id = ? AND to_rank_id = ?`, rank.id, to.id);
+      if (open) run('DELETE FROM proposals WHERE id = ?', open.id);
+      run(
+        `INSERT INTO proposals (kind, rank_id, to_rank_id, from_time, until_time, price_cents, starts_on, proposed_by_id, proposed_by, proposed_at)
+         VALUES ('FARE', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        rank.id, to.id, fare.from_time, fare.until_time, fare.price_cents, start, user.id, user.name, now(),
+      );
+    });
+    changed();
+    return { message: `Sent to the office: ${to.name}, ${fareText(fare)}` };
+  }
+
+  /** A marshal standing at their rank sends its spot from their phone. An admin approves it before the pin moves. */
+  function proposeLocation(user, input = {}) {
+    const rank = marshalRank(user);
+    const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
+    const lat = num(input.lat);
+    const lng = num(input.lng);
+    const accuracy = num(input.accuracy);
+    if (!(lat >= -35 && lat <= -22) || !(lng >= 16 && lng <= 33)) throw new HttpError(400, 'That position is outside South Africa.');
+    if (!(accuracy > 0)) throw new HttpError(400, 'Your phone did not say how accurate its location is. Try again.');
+    if (accuracy > MAX_SPOT_ACCURACY_M) {
+      throw new HttpError(400, `Your phone's location is only accurate to about ${Math.round(accuracy)} m. Stand in the open at the rank and try again.`);
+    }
+    const km = haversineKm([rank.lat, rank.lng], [lat, lng]);
+    if (km > MAX_SPOT_MOVE_KM) {
+      throw new HttpError(400, `You are about ${Math.round(km)} km from where ${rank.name} is on the map. Mark it while standing at the rank, or ask the office to move the pin.`);
+    }
+    tx(() => {
+      const open = openRequest(user, `kind = 'LOCATION' AND rank_id = ?`, rank.id);
+      if (open) run('DELETE FROM proposals WHERE id = ?', open.id);
+      run(
+        `INSERT INTO proposals (kind, rank_id, lat, lng, accuracy, proposed_by_id, proposed_by, proposed_at) VALUES ('LOCATION', ?, ?, ?, ?, ?, ?, ?)`,
+        rank.id, +lat.toFixed(6), +lng.toFixed(6), Math.max(1, Math.round(accuracy)), user.id, user.name, now(),
+      );
+    });
+    changed();
+    return { message: `Sent to the office: the spot for ${rank.name}` };
+  }
+
+  /** The marshal takes back their own request before the office decides. */
+  function withdrawProposal(id, user) {
+    const p = getProposal(id);
+    if (p.proposed_by_id !== user.id) throw new HttpError(403, 'You can only take back what you sent.');
+    if (p.status !== 'PENDING') throw new HttpError(409, 'The office has already decided on that.');
+    run(`UPDATE proposals SET status = 'WITHDRAWN', decided_at = ? WHERE id = ?`, now(), p.id);
+    changed();
+    return { message: 'Taken back' };
+  }
+
+  /**
+   * An admin approves or declines a marshal's request. Approving a fare adds the route (both
+   * ways) when it is new, then sets the fare, now or as a planned change. Approving a spot
+   * moves the rank's pin and marks it checked.
+   */
+  function decideProposal(id, admin, input = {}) {
+    if (typeof input.approve !== 'boolean') throw new HttpError(400, 'Say whether to approve or decline.');
+    const reason = input.approve ? null : optText(input.reason, 200, 'reason');
+    const newRoutes = [];
+    const result = tx(() => {
+      const p = getProposal(id);
+      if (p.status !== 'PENDING') throw new HttpError(409, 'That request has already been decided or taken back.');
+      const rank = getRank(p.rank_id);
+      const sentBy = ` (sent by ${p.proposed_by})`;
+      let message;
+      if (!input.approve) {
+        const what = p.kind === 'FARE' ? `fare to ${rankName(p.to_rank_id)} (${fareText(p)})` : 'rank spot';
+        log(null, p.kind === 'FARE' ? 'FARE' : 'RANK', rank.id, null, admin.name, `${rank.name}: ${what} declined${reason ? `: ${reason}` : ''}${sentBy}`);
+        message = 'Declined';
+      } else if (p.kind === 'FARE') {
+        const to = getRank(p.to_rank_id);
+        for (const [a, b] of [[rank, to], [to, rank]]) {
+          if (one('SELECT id FROM routes WHERE from_rank_id = ? AND to_rank_id = ?', a.id, b.id)) continue;
+          newRoutes.push(Number(run('INSERT INTO routes (from_rank_id, to_rank_id, polyline) VALUES (?, ?, ?)', a.id, b.id, lineBetween(a, b)).lastInsertRowid));
+        }
+        const route = one('SELECT * FROM routes WHERE from_rank_id = ? AND to_rank_id = ?', rank.id, to.id);
+        message = writeFare(route, p, validStart(p.starts_on, { lenient: true }), admin.name, sentBy).message;
+      } else {
+        const km = haversineKm([rank.lat, rank.lng], [p.lat, p.lng]);
+        updateRank(rank.id, { lat: p.lat, lng: p.lng, verified: true, source: `Marked at the rank by ${p.proposed_by}`, note: '' });
+        log(null, 'RANK', rank.id, null, admin.name, `${rank.name}: pin moved ${km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`} to the spot marked at the rank${sentBy}`);
+        message = `${rank.name} is now on the exact spot`;
+      }
+      run('UPDATE proposals SET status = ?, decided_by = ?, decided_at = ?, reason = ? WHERE id = ?', input.approve ? 'APPROVED' : 'DECLINED', admin.name, now(), reason, p.id);
+      return { message };
+    });
+    changed();
+    fetchMissingRoads(newRoutes);
+    return result;
+  }
+
+  // ---------------------------------------------------------------- holding area
+
+  /** The marshal says the rank is full and taxis must wait in the holding area, or that there is space again. */
+  function setHolding(rankId, on, by = 'marshal') {
+    if (typeof on !== 'boolean') throw new HttpError(400, 'Say whether the holding area is in use.');
+    const rank = getRank(rankId);
+    const active = rank.holding_since != null && now() - rank.holding_since < HOLDING_MAX_MS;
+    if (active === on) return { message: on ? 'The holding area is already in use' : 'The rank already has space' };
+    tx(() => {
+      run('UPDATE ranks SET holding_since = ? WHERE id = ?', on ? now() : null, rank.id);
+      log(null, 'HOLDING', rank.id, null, by, on ? `${rank.name} is full: taxis wait in the holding area` : `${rank.name} has space again`);
+    });
+    changed();
+    return { message: on ? 'Holding area in use. Drivers and passengers can see it.' : 'The rank has space again' };
   }
 
   // ---------------------------------------------------------------- reads
@@ -466,16 +692,32 @@ export function createStore(db, opts = {}) {
     id: t.id, taxiId: t.taxi_id, routeId: t.route_id, departedAt: t.departed_at, arrivedAt: t.arrived_at,
     seatsAtDeparture: t.seats_at_departure, durationMs: t.duration_ms, speedKmh: t.speed_kmh,
   });
+  const mapProposal = (p) => ({
+    id: p.id, kind: p.kind, rankId: p.rank_id, toRankId: p.to_rank_id, status: p.status,
+    from: p.from_time, until: p.until_time, price: p.price_cents == null ? null : p.price_cents / 100, startsOn: p.starts_on,
+    lat: p.lat, lng: p.lng, accuracy: p.accuracy,
+    byId: p.proposed_by_id, by: p.proposed_by, at: p.proposed_at, decidedBy: p.decided_by, decidedAt: p.decided_at, reason: p.reason,
+  });
   const mapEvent = (e) => ({
     id: e.id, taxiId: e.taxi_id, type: e.type, rankId: e.rank_id, routeId: e.route_id, at: e.at, by: e.by, detail: e.detail,
   });
 
   function snapshot() {
     return {
-      ranks: all('SELECT * FROM ranks ORDER BY name').map((r) => ({
-        id: r.id, slug: r.slug, name: r.name, lat: r.lat, lng: r.lng, area: r.area, regionId: r.region_id,
-        verified: !!r.verified, source: r.source, note: r.note,
+      ranks: all('SELECT * FROM ranks ORDER BY name').map((r) => {
+        const holding = r.holding_since != null && now() - r.holding_since < HOLDING_MAX_MS;
+        return {
+          id: r.id, slug: r.slug, name: r.name, lat: r.lat, lng: r.lng, area: r.area, regionId: r.region_id,
+          verified: !!r.verified, source: r.source, note: r.note, holding, holdingSince: holding ? r.holding_since : null,
+        };
+      }),
+      fareChanges: all('SELECT * FROM fare_changes ORDER BY route_id').map((c) => ({
+        routeId: c.route_id, from: c.from_time, until: c.until_time, price: c.price_cents / 100, startsOn: c.starts_on, setBy: c.set_by,
       })),
+      // every open request, and the latest decisions so a marshal sees what the office said
+      proposals: all(`SELECT * FROM proposals WHERE status = 'PENDING'
+                      OR id IN (SELECT id FROM proposals WHERE status IN ('APPROVED', 'DECLINED') ORDER BY decided_at DESC LIMIT 40)
+                      ORDER BY proposed_at DESC, id DESC`).map(mapProposal),
       fares: all('SELECT * FROM fares ORDER BY route_id').map((f) => ({
         routeId: f.route_id, from: f.from_time, until: f.until_time, price: f.price_cents / 100, updatedAt: f.updated_at, updatedBy: f.updated_by,
       })),
@@ -506,9 +748,11 @@ export function createStore(db, opts = {}) {
   function publicSnapshot() {
     const s = snapshot();
     return {
-      ranks: s.ranks.map(({ id, slug, name, lat, lng, area, regionId, verified }) => ({ id, slug, name, lat, lng, area, regionId, verified })),
+      ranks: s.ranks.map(({ id, slug, name, lat, lng, area, regionId, verified, holding }) => ({ id, slug, name, lat, lng, area, regionId, verified, holding })),
       routes: s.routes,
       fares: s.fares.map(({ routeId, from, until, price }) => ({ routeId, from, until, price })),
+      fareChanges: s.fareChanges.map(({ routeId, from, until, price, startsOn }) => ({ routeId, from, until, price, startsOn })),
+      proposals: [],
       taxis: s.taxis.map(({ id, plate, capacity, status, rankId, tripId }) => ({ id, plate, capacity, status, rankId, tripId })),
       queue: s.queue.map(({ id, taxiId, rankId, routeId, position, seats, status }) => ({ id, taxiId, rankId, routeId, position, seats, status })),
       trips: s.trips.filter((t) => !t.arrivedAt).map(({ id, taxiId, routeId, departedAt, durationMs }) => ({ id, taxiId, routeId, departedAt, durationMs })),
@@ -524,7 +768,8 @@ export function createStore(db, opts = {}) {
 
   return {
     db, tx, act, rankForAction, createTaxi, taxiHistory, createRank, updateRank, deleteRank, createRoute, deleteRoute,
-    setFare, deleteFare,
+    setFare, deleteFare, cancelFareChange, applyDueFares,
+    proposeFare, proposeLocation, withdrawProposal, decideProposal, setHolding,
     snapshot, publicSnapshot, isEmpty, now,
     on: (...a) => emitter.on(...a),
     off: (...a) => emitter.off(...a),

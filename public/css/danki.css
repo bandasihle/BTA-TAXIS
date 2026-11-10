@@ -206,3 +206,8 @@ button { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .dk-slip, .dk-slip.is-open, .dk-taxi-icon, .dk-fare-btn, .dk-list a { transition: none; }
 }
+
+/* a fare change the association has announced, and the holding-area note */
+.dk-next { margin: -4px 4px 12px; padding-left: 12px; box-shadow: inset 3px 0 0 var(--red); font-size: 14px; font-weight: 500; color: var(--ink); }
+.dk-next::before { content: 'Changing: '; font-weight: 400; color: var(--ink-2); }
+.dk-hold { margin-top: 16px; padding: 12px 16px; border-radius: 10px; background: var(--paper-2); font-size: 15px; color: var(--ink); }

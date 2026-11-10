@@ -523,3 +523,11 @@ a.role:hover h2 { text-decoration: underline; text-decoration-thickness: 2px; te
 .fare-form .check { align-self: center; }
 .fares-add { grid-template-columns: minmax(0, 1fr) auto; }
 @media (max-width: 760px) { .fares-add { grid-template-columns: 1fr; } .fare-form .field { width: calc(50% - 6px); } }
+
+/* fares: what marshals sent, waiting for the office */
+.req-title { padding-left: 0; }
+.req-row { box-shadow: inset 4px 0 0 var(--accent); }
+.req-what { font-weight: 600; }
+.req-planned { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--ink-2); }
+.fare-form .fare-start { width: 170px; }
+@media (max-width: 760px) { .fare-form .fare-start { width: 100%; } }

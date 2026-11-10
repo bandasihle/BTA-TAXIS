@@ -1,5 +1,5 @@
 import {
-  $, esc, local, renderTopbar, requireStaff, connect, api, act, busy, toast, plate, busSeats, eta, ago, clock,
+  $, esc, local, renderTopbar, requireStaff, connect, api, act, busy, toast, plate, busSeats, eta, ago, clock, clockTime,
   confirmDialog, renderKeepingFocus, FOOTER, registerServiceWorker, STATUS_LABEL,
 } from './common.js';
 
@@ -77,7 +77,16 @@ function render() {
           ${s.ranks.map((r) => `<option value="${r.id}"${r.id === rankId ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}
         </select>`}
       </div>
-    </div>`;
+    </div>
+    ${rank.holding
+    ? `<div class="m-hold is-on" role="status">
+        <p><b>Rank full.</b> Taxis are waiting in the holding area${rank.holdingSince ? ` since ${clockTime(rank.holdingSince)}` : ''}. Drivers and passengers can see this.</p>
+        <button class="btn sm" type="button" data-action="holding" data-on="0" data-key="hold">The rank has space again</button>
+      </div>`
+    : `<div class="m-hold">
+        <button class="btn sm" type="button" data-action="holding" data-on="1" data-key="hold">Rank full: use the holding area</button>
+        ${ownRankOnly ? '<a class="btn sm quiet" href="/rank.html">Fares and rank spot</a>' : ''}
+      </div>`}`;
 
   const tabs = routes.length
     ? `<div class="tabs" role="tablist" aria-label="Routes from ${esc(rank.name)}">
@@ -215,6 +224,15 @@ app.addEventListener('click', async (e) => {
       break;
     case 'arrive':
       await busy(b, () => act({ type: 'arrive', taxiId }));
+      break;
+    case 'holding':
+      await busy(b, async () => {
+        try {
+          toast((await api(`/api/ranks/${rankId}/holding`, { method: 'PUT', body: { on: b.dataset.on === '1' } })).message);
+        } catch (err) {
+          toast(err.status ? err.message : 'No signal. Nothing changed. Try again when you are back online.', 'error');
+        }
+      });
       break;
   }
 });

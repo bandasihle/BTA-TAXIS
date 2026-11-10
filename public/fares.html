@@ -18,8 +18,12 @@
   <main class="users fares-page">
     <div>
       <h1>Fares</h1>
-      <p class="muted">The destinations, hours and prices passengers see in Danki Driver. Changes show on passengers' phones straight away, and every change is logged with who made it.</p>
+      <p class="muted">The destinations, hours and prices passengers see in Danki Driver. Changes show on passengers' phones straight away, unless you give a start date: then passengers see the notice until that day. Marshals can ask for a fare or their rank's spot, and nothing they send changes until you approve it. Every change is logged with who made it.</p>
     </div>
+    <section id="requests" aria-live="polite" hidden>
+      <h2 class="section-title req-title">Waiting for your decision</h2>
+      <ul class="user-list" id="request-list"></ul>
+    </section>
     <label class="field fares-rank">Rank
       <select class="input" id="rank"></select>
     </label>

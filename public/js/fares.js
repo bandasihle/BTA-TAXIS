@@ -86,10 +86,12 @@ export function lookup([p, r, k] = [], provinces = PROVINCES) {
  * that have a fare). Same shape as PROVINCES, so the passenger app works the same way.
  *
  * rank:        { id (link slug), dbId, name, at, exact, destinations }
- * destination: { name, at, from, until, price, routeId, backRouteId, toPath (link to it as a rank, or null) }
+ * destination: { name, at, from, until, price, routeId, backRouteId, toPath (link to it as a rank, or null),
+ *                next (a fare change the association has announced: { from, until, price, startsOn }, or null) }
  */
-export function buildDirectory({ ranks = [], routes = [], fares = [] } = {}) {
+export function buildDirectory({ ranks = [], routes = [], fares = [], fareChanges = [] } = {}) {
   const fareByRoute = new Map(fares.map((f) => [f.routeId, f]));
+  const nextByRoute = new Map(fareChanges.map(({ routeId, from, until, price, startsOn }) => [routeId, { from, until, price, startsOn }]));
   const rankById = new Map(ranks.map((r) => [r.id, r]));
   const regionPath = new Map(PROVINCES.flatMap((p) => p.regions.map((g) => [g.id, p.id])));
   const pathTo = (r) => (r.regionId && regionPath.has(r.regionId) ? [regionPath.get(r.regionId), r.regionId, r.slug] : null);
@@ -102,7 +104,7 @@ export function buildDirectory({ ranks = [], routes = [], fares = [] } = {}) {
         const f = fareByRoute.get(x.id);
         const there = rankById.get(x.toRankId);
         const back = routes.find((y) => y.fromRankId === x.toRankId && y.toRankId === r.id);
-        return { name: there.name, at: [there.lat, there.lng], from: f.from, until: f.until, price: f.price, routeId: x.id, backRouteId: back?.id ?? null, toPath: pathTo(there) };
+        return { name: there.name, at: [there.lat, there.lng], from: f.from, until: f.until, price: f.price, routeId: x.id, backRouteId: back?.id ?? null, toPath: pathTo(there), next: nextByRoute.get(x.id) ?? null };
       }),
   });
 
@@ -120,6 +122,11 @@ export function buildDirectory({ ranks = [], routes = [], fares = [] } = {}) {
 /** "R40" or "R12.50". */
 export function priceLabel(price) {
   return `R${Number.isInteger(price) ? price : price.toFixed(2)}`;
+}
+
+/** "1 Dec" for a start date like "2026-12-01". */
+export function dayLabel(day) {
+  return new Date(`${day}T12:00:00Z`).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
 /** Every rank, with the region and province it belongs to. */

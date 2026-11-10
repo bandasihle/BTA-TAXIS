@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS ranks (
   source TEXT,
   note TEXT,
   slug TEXT,
-  region_id TEXT
+  region_id TEXT,
+  holding_since INTEGER
 );
 CREATE TABLE IF NOT EXISTS routes (
   id INTEGER PRIMARY KEY,
@@ -112,6 +113,39 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at INTEGER NOT NULL,
   client TEXT NOT NULL
 );
+-- An approved fare that starts on a later day (South African date), so passengers get notice.
+CREATE TABLE IF NOT EXISTS fare_changes (
+  route_id INTEGER PRIMARY KEY REFERENCES routes(id) ON DELETE CASCADE,
+  from_time TEXT NOT NULL,
+  until_time TEXT NOT NULL,
+  price_cents INTEGER NOT NULL CHECK (price_cents > 0),
+  starts_on TEXT NOT NULL,
+  set_at INTEGER NOT NULL,
+  set_by TEXT
+);
+-- What a marshal asks the office to approve: a fare for a destination from their rank, or
+-- the rank's exact spot. Nothing here reaches passengers until an admin approves it.
+CREATE TABLE IF NOT EXISTS proposals (
+  id INTEGER PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('FARE', 'LOCATION')),
+  rank_id INTEGER NOT NULL REFERENCES ranks(id) ON DELETE CASCADE,
+  to_rank_id INTEGER REFERENCES ranks(id) ON DELETE CASCADE,
+  from_time TEXT,
+  until_time TEXT,
+  price_cents INTEGER,
+  starts_on TEXT,
+  lat REAL,
+  lng REAL,
+  accuracy REAL,
+  status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'DECLINED', 'WITHDRAWN')),
+  proposed_by_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  proposed_by TEXT NOT NULL,
+  proposed_at INTEGER NOT NULL,
+  decided_by TEXT,
+  decided_at INTEGER,
+  reason TEXT
+);
+CREATE INDEX IF NOT EXISTS proposals_status ON proposals(status, rank_id);
 CREATE INDEX IF NOT EXISTS events_at ON events(at);
 CREATE INDEX IF NOT EXISTS trips_open ON trips(arrived_at);
 `;
@@ -131,6 +165,7 @@ function migrate(db) {
   const has = (table, column) => db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column);
   if (!has('ranks', 'slug')) db.exec('ALTER TABLE ranks ADD COLUMN slug TEXT');
   if (!has('ranks', 'region_id')) db.exec('ALTER TABLE ranks ADD COLUMN region_id TEXT');
+  if (!has('ranks', 'holding_since')) db.exec('ALTER TABLE ranks ADD COLUMN holding_since INTEGER');
   for (const r of db.prepare('SELECT id, name FROM ranks WHERE slug IS NULL').all()) {
     db.prepare('UPDATE ranks SET slug = ? WHERE id = ?').run(`${slugify(r.name) || 'rank'}-${r.id}`, r.id);
   }
