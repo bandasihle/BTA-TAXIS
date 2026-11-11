@@ -1,0 +1,9 @@
+/* "A new version is ready" bar, shown by js/update-check.js in the sideload app only. */
+.upd {
+  position: relative; z-index: 2500; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px; background: #0c1a4b; color: #fff; font: 500 15px/1.4 system-ui, sans-serif;
+}
+.upd p { margin: 0; flex: 1 1 200px; }
+.upd-go, .upd-x { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 10px; font: 600 15px system-ui, sans-serif; cursor: pointer; }
+.upd-go { background: #d71f2b; color: #fff; text-decoration: none; }
+.upd-x { border: 1px solid rgba(255, 255, 255, 0.35); background: transparent; color: #fff; }

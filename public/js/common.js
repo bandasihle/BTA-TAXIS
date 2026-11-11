@@ -121,6 +121,8 @@ export function enter(kind) {
 const NATIVE = !!window.Capacitor?.isNativePlatform?.();
 export const API_BASE = NATIVE ? 'https://bta-taxis.onrender.com' : '';
 export const IS_APP = NATIVE;
+// The sideload app checks for a newer version once per start (see update-check.js).
+if (IS_APP) setTimeout(() => import('./update-check.js').then((m) => m.checkForUpdate()).catch(() => {}), 1500);
 
 export const clock = {
   offset: 0,

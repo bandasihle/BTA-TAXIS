@@ -284,6 +284,8 @@ async function api(req, res, url) {
   if (m === 'GET' && p === '/api/stream') return stream(req, res, url);
   if (m === 'GET' && p === '/api/snapshot') return json(res, 200, store.publicSnapshot());
   if (m === 'GET' && p === '/api/positions') return json(res, 200, positions.getPositions());
+  // the sideload build of the app asks this once per start, to offer an update
+  if (m === 'GET' && p === '/api/app-version') return json(res, 200, appVersion());
 
   // signing in and out
   if (m === 'POST' && p === '/api/login') {
@@ -484,8 +486,24 @@ const oneChange = (fn) => store.quietly(() => store.tx(fn));
 const PAGES = {
   '/': 'index.html', '/staff': 'staff.html', '/marshal': 'marshal.html', '/dashboard': 'dashboard.html',
   '/editor': 'editor.html', '/board': 'board.html', '/login': 'login.html', '/users': 'users.html', '/fares': 'fares.html', '/rank': 'rank.html',
-  '/driver': 'driver.html',
+  '/driver': 'driver.html', '/download': 'download.html', '/privacy': 'privacy.html',
 };
+
+// The staff app's latest version, edited by hand at each release (see docs/website-plan.md).
+const VERSION_FILE = path.join(PUBLIC, 'download', 'version.json');
+// The APK is only ever fetched from this project's GitHub releases, so the download link can
+// never be turned into a redirect to somewhere else.
+const APK_PREFIX = 'https://github.com/bandasihle/BTA-TAXIS/releases/download/';
+
+function appVersion() {
+  try {
+    const v = JSON.parse(fs.readFileSync(VERSION_FILE, 'utf8'));
+    const apkUrl = typeof v.apkUrl === 'string' && v.apkUrl.startsWith(APK_PREFIX) && !v.apkUrl.includes('..') ? v.apkUrl : '';
+    return { versionCode: Number(v.versionCode) || 0, versionName: String(v.versionName ?? ''), apkUrl };
+  } catch {
+    return { versionCode: 0, versionName: '', apkUrl: '' };
+  }
+}
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.jpeg': 'image/jpeg', '.jpg': 'image/jpeg',
@@ -517,6 +535,12 @@ function serveStatic(req, res, url) {
     p = decodeURIComponent(url.pathname);
   } catch {
     throw new HttpError(400, 'Bad address.');
+  }
+  if (p === '/download/dankie-driver.apk') {
+    const { apkUrl } = appVersion();
+    if (!apkUrl) throw new HttpError(404, 'The app is not available to download yet.');
+    res.writeHead(302, { Location: apkUrl, 'Cache-Control': 'no-cache' });
+    return res.end();
   }
   if (PAGES[p] && serveFile(res, PUBLIC, PAGES[p])) return;
   if (p.startsWith('/vendor/leaflet/') && serveFile(res, LEAFLET, p.slice('/vendor/leaflet/'.length))) return;

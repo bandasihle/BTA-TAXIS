@@ -425,3 +425,15 @@ test('free-text fields have a length limit', async () => {
   assert.equal(r.status, 400);
   assert.match(r.data.error, /owner name/);
 });
+
+test('the download page, privacy page and app version are public; the APK link waits for a release', async () => {
+  for (const p of ['/download', '/download.html', '/privacy', '/download/version.json', '/js/download.js']) {
+    assert.equal((await fetch(BASE + p)).status, 200, p);
+  }
+  const v = await call('GET', '/api/app-version');
+  assert.equal(v.status, 200);
+  assert.equal(typeof v.data.versionCode, 'number');
+  assert.equal(v.data.apkUrl, '', 'no release published yet');
+  const apk = await fetch(`${BASE}/download/dankie-driver.apk`, { redirect: 'manual' });
+  assert.equal(apk.status, 404);
+});

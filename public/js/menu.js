@@ -64,7 +64,7 @@ export function mountMenu(button, { user = null, staffWeb = 'on', current = loca
     <div class="mn-end">
       ${user ? '<button class="mn-out" type="button">Sign out</button>' : signInBlock(staffWeb)}
     </div>
-    <p class="mn-foot">Benoni Taxi Association. The wheels of the nation.</p>`;
+    <p class="mn-foot">Benoni Taxi Association. The wheels of the nation. · <a href="/privacy.html">Privacy</a></p>`;
   document.body.append(dlg);
 
   button.addEventListener('click', () => {

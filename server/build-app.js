@@ -16,6 +16,8 @@ const API = 'https://bta-taxis.onrender.com'; // must match API_BASE in public/j
 fs.rmSync(WWW, { recursive: true, force: true });
 fs.cpSync(path.join(ROOT, 'public'), WWW, { recursive: true });
 fs.rmSync(path.join(WWW, 'sw.js'));
+// website-only pages, and the web's build-info.js: the Android build writes the app's own
+for (const f of ['download.html', 'download', 'js/download.js', 'js/build-info.js']) fs.rmSync(path.join(WWW, f), { recursive: true, force: true });
 fs.cpSync(path.join(ROOT, 'node_modules', 'leaflet', 'dist'), path.join(WWW, 'vendor', 'leaflet'), { recursive: true });
 
 function policy(html) {

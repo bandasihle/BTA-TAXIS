@@ -71,7 +71,11 @@ keyAlias=danki
 keyPassword=<the password you chose>
 ```
 
-Build with `./gradlew bundleRelease` (an `.aab` for Google Play) or `./gradlew assembleRelease` (an `.apk`). Back up the `.jks` and its password in two safe places. Without them you can never update the app, and anyone who has them can sign a fake update.
+There are two builds of the same app (same id, same key):
+- **sideload**, downloaded from the website's `/download` page. It checks `/api/app-version` once per start and offers the download page when a newer version is out. Build it with `./gradlew assembleSideloadRelease` (an `.apk`).
+- **play**, for the Play Store, which handles updates itself. Build it with `./gradlew bundlePlayRelease` (an `.aab`).
+
+To publish a sideload release: raise `versionCode` and `versionName` in `android/app/build.gradle`, build, upload the `.apk` to a GitHub Release, then put its address, SHA-256, size and date in `public/download/version.json` and deploy. The site only links to files under `https://github.com/bandasihle/BTA-TAXIS/releases/download/`. Back up the `.jks` and its password in two safe places. Without them you can never update the app, and anyone who has them can sign a fake update.
 
 Settings (environment variables): `PORT` (default 3000), `DB_FILE` (default `data/taxi.db`), `TRUST_PROXY_HOPS` (default 0; set 1 behind Render's proxy so the sign-in limit sees the real client address), and `BOOTSTRAP_ADMIN_PHONE` + `BOOTSTRAP_ADMIN_PIN` (+ optional `BOOTSTRAP_ADMIN_NAME`) to create the first admin on a host with no shell. Only used while there are no accounts; set them as secrets.
 

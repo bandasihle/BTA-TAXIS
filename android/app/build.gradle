@@ -32,6 +32,13 @@ android {
             }
         }
     }
+    // Two builds of the same app: "sideload" is downloaded from the website and checks it for
+    // updates; "play" is for the Play Store, which handles updates itself. Same id, same key.
+    flavorDimensions = ["store"]
+    productFlavors {
+        sideload { dimension "store" }
+        play { dimension "store" }
+    }
     buildTypes {
         release {
             debuggable false
@@ -61,6 +68,36 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+// Each build gets its own public/js/build-info.js: its version number, and whether it checks the
+// website for updates (sideload only). server/build-app.js leaves the web's copy out of www/.
+abstract class BuildInfoTask extends DefaultTask {
+    @Input abstract Property<Integer> getVersionCode()
+    @Input abstract Property<String> getVersionName()
+    @Input abstract Property<Boolean> getUpdateCheck()
+    @OutputDirectory abstract DirectoryProperty getOutputDir()
+
+    @TaskAction
+    void write() {
+        def file = outputDir.get().file('public/js/build-info.js').asFile
+        file.parentFile.mkdirs()
+        def name = versionName.get().replaceAll(/[^0-9A-Za-z._-]/, '')
+        file.text = "// Written by the Android build.\n" +
+            "export const BUILD = Object.freeze({ versionCode: ${versionCode.get()}, versionName: '${name}', updateCheck: ${updateCheck.get()} });\n"
+    }
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        def output = variant.outputs.first()
+        def task = project.tasks.register("${variant.name}BuildInfo", BuildInfoTask) {
+            versionCode.set(output.versionCode)
+            versionName.set(output.versionName)
+            updateCheck.set(variant.flavorName == 'sideload')
+        }
+        variant.sources.assets.addGeneratedSourceDirectory(task, { it.outputDir })
+    }
+}
 
 try {
     def servicesJSON = file('google-services.json')
