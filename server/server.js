@@ -67,8 +67,9 @@ store.on('change', () => {
 setInterval(() => {
   const wanting = [...clients].filter((c) => c.pos);
   if (!wanting.length) return;
-  const pos = positions.getPositions();
-  for (const c of wanting) send(c.res, 'pos', pos);
+  const pub = positions.getPositions();
+  const staff = wanting.some((c) => c.user) ? positions.getPositions({ staff: true }) : null;
+  for (const c of wanting) send(c.res, 'pos', c.user ? staff : pub); // estimates go to staff only
 }, 1000).unref();
 
 setInterval(() => {
@@ -108,7 +109,7 @@ function stream(req, res, url) {
   clients.add(client);
   streamsByIp.set(ip, mine + 1);
   send(res, 'snapshot', user ? store.snapshot() : store.publicSnapshot());
-  if (client.pos) send(res, 'pos', positions.getPositions());
+  if (client.pos) send(res, 'pos', positions.getPositions({ staff: !!user }));
   req.on('close', () => {
     clients.delete(client);
     const left = (streamsByIp.get(ip) ?? 1) - 1;

@@ -4,7 +4,8 @@
 //
 // Points from phones are not trusted: they must be inside South Africa, recent by the server's
 // clock, physically possible after the last point, and from the driver linked to that taxi.
-import { haversineKm } from './geo.js';
+import { haversineKm, pointAlong } from './geo.js';
+import { lateness } from '../public/js/trips.js';
 import { STATUS } from './state.js';
 import { HttpError } from './store.js';
 import { CONSENT_VERSION } from '../public/js/consent.js';
@@ -92,13 +93,29 @@ export class PositionSource {
     this.db.prepare('DELETE FROM positions WHERE at < ?').run(this.now() - KEEP_MS);
   }
 
+  /** Route lines, parsed once per route and kept until the route's line changes. */
+  #lines = new Map();
+  #line(routeId, raw) {
+    const hit = this.#lines.get(routeId);
+    if (hit?.raw === raw) return hit.points;
+    const points = JSON.parse(raw);
+    this.#lines.set(routeId, { raw, points });
+    return points;
+  }
+
   /**
    * Every working taxi's position: taxis at a rank at the rank, taxis on a trip at their latest
    * fresh GPS point (rounded to about 10 m), with the expected time left on the trip.
    *
    *   [{ id, lat, lng, status, rankId?, routeId?, slot?, etaMs?, gps? }]
+   *
+   * With staff: true, a taxi on a trip with no fresh GPS is placed where it should be along its
+   * route by now (estimated: true), and every trip says how late it is. Passengers never get
+   * estimates: a guessed dot could send someone to wait for a taxi that is not there.
+   *
+   *   staff extras: { estimated?, lastGpsAt?, lateMs, overdue }
    */
-  getPositions() {
+  getPositions({ staff = false } = {}) {
     const t = this.now();
     const atRank = this.db.prepare(
       `SELECT x.id, x.status, x.rank_id, r.lat, r.lng, q.route_id, q.position
@@ -114,15 +131,27 @@ export class PositionSource {
       return { id: row.id, lat: row.lat, lng: row.lng, status: row.status, rankId: row.rank_id, routeId: row.route_id, slot };
     });
     const driving = this.db.prepare(
-      `SELECT x.id, p.lat, p.lng, t.route_id, t.departed_at, t.duration_ms
-       FROM taxis x JOIN positions p ON p.taxi_id = x.id JOIN trips t ON t.id = x.trip_id
-       WHERE x.status = 'EN_ROUTE' AND p.at >= ?`,
-    ).all(t - FRESH_MS);
+      `SELECT x.id, p.lat, p.lng, p.at, t.route_id, t.departed_at, t.duration_ms, r.polyline
+       FROM taxis x JOIN trips t ON t.id = x.trip_id
+       LEFT JOIN positions p ON p.taxi_id = x.id
+       LEFT JOIN routes r ON r.id = t.route_id
+       WHERE x.status = 'EN_ROUTE'`,
+    ).all();
     for (const d of driving) {
-      out.push({
-        id: d.id, lat: +d.lat.toFixed(4), lng: +d.lng.toFixed(4), status: STATUS.EN_ROUTE, routeId: d.route_id,
-        etaMs: Math.max(0, d.departed_at + d.duration_ms - t), gps: true,
-      });
+      const fresh = d.at != null && d.at >= t - FRESH_MS;
+      const base = { id: d.id, status: STATUS.EN_ROUTE, routeId: d.route_id, etaMs: Math.max(0, d.departed_at + d.duration_ms - t) };
+      const late = staff ? lateness({ departedAt: d.departed_at, durationMs: d.duration_ms }, t) : null;
+      const extras = late ? { lateMs: late.lateMs, overdue: late.overdue } : {};
+      if (fresh) {
+        out.push({ ...base, lat: +d.lat.toFixed(4), lng: +d.lng.toFixed(4), gps: true, ...extras });
+      } else if (staff && d.polyline) {
+        const progress = d.duration_ms > 0 ? (t - d.departed_at) / d.duration_ms : 1;
+        const [lat, lng] = pointAlong(this.#line(d.route_id, d.polyline), Math.min(1, Math.max(0, progress)));
+        out.push({
+          ...base, lat: +lat.toFixed(4), lng: +lng.toFixed(4), gps: false, estimated: true,
+          lastGpsAt: d.at != null && d.at >= d.departed_at ? d.at : null, ...extras,
+        });
+      }
     }
     return out;
   }

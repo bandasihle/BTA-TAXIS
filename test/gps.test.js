@@ -173,3 +173,45 @@ test('positions marked as coming from a fake-location app are not kept', () => {
   assert.match(r.message, /fake location/);
   assert.equal(gpsDot(source, taxiId), undefined);
 });
+
+test('staff see a taxi with no GPS where it should be by now; passengers never get the guess', () => {
+  const { store, source, taxiId, from, to, advance } = onTrip();
+  const trip = store.snapshot().trips.find((x) => x.taxiId === taxiId);
+  const staffDot = () => source.getPositions({ staff: true }).find((p) => p.id === taxiId);
+
+  assert.equal(source.getPositions().find((p) => p.id === taxiId), undefined, 'the public list has no made-up position');
+  const start = staffDot();
+  assert.equal(start.estimated, true);
+  assert.equal(start.gps, false);
+  assert.equal(start.lastGpsAt, null);
+  assert.equal(start.overdue, false);
+  assert.ok(Math.abs(start.lat - from.lat) < 0.002 && Math.abs(start.lng - from.lng) < 0.002, 'starts at the rank it left');
+
+  advance(trip.durationMs / 2);
+  const mid = staffDot();
+  assert.ok(Math.abs(mid.lat - from.lat) > 0.001 || Math.abs(mid.lng - from.lng) > 0.001, 'moves along the route');
+  assert.equal(source.getPositions().find((p) => p.id === taxiId), undefined);
+
+  advance(trip.durationMs / 2 + Math.max(trip.durationMs, 10 * 60_000));
+  const late = staffDot();
+  assert.equal(late.overdue, true);
+  assert.ok(late.lateMs >= Math.max(trip.durationMs, 10 * 60_000));
+  assert.ok(Math.abs(late.lat - to.lat) < 0.002 && Math.abs(late.lng - to.lng) < 0.002, 'waits at the destination once due');
+});
+
+test('a taxi whose GPS stops is estimated again, with when GPS was last heard', () => {
+  const { source, driver, taxiId, from, fix, advance, now } = onTrip();
+  advance(5_000);
+  source.record(driver, fix(from));
+  const heard = now();
+  const live = source.getPositions({ staff: true }).find((p) => p.id === taxiId);
+  assert.equal(live.gps, true);
+  assert.equal(live.estimated, undefined);
+  assert.equal(typeof live.lateMs, 'number');
+  assert.equal(source.getPositions().find((p) => p.id === taxiId).lateMs, undefined, 'lateness is for staff');
+
+  advance(FRESH_MS + 1_000);
+  const lost = source.getPositions({ staff: true }).find((p) => p.id === taxiId);
+  assert.equal(lost.estimated, true);
+  assert.equal(lost.lastGpsAt, heard);
+});

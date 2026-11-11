@@ -21,6 +21,7 @@
     <div class="map" id="map" aria-label="Map of ranks and taxis"></div>
     <aside class="panel" aria-label="Ranks, trips and taxis">
       <div class="summary" id="summary" role="group" aria-label="Show taxis by state"></div>
+      <div class="late" id="late" role="status" aria-live="polite" hidden></div>
       <div class="filters">
         <label class="visually-hidden" for="f-route">Route</label>
         <select class="input" id="f-route"><option value="all">All routes</option></select>
@@ -33,7 +34,7 @@
         <button class="ptab" role="tab" type="button" data-tab="taxis">Taxis</button>
       </div>
       <div class="panel-scroll" id="panel-body"></div>
-      <div class="footer" style="border-top:1px solid var(--line)">Taxis on the road show on the map once drivers' phones send their position. Until then they are listed with an expected arrival time.</div>
+      <div class="footer" style="border-top:1px solid var(--line)">Taxis on the road show where their driver's phone says they are. A dashed dot is an estimate along the route, for when the phone is not sending its location.</div>
     </aside>
   </main>
   <script src="/vendor/leaflet/leaflet.js"></script>

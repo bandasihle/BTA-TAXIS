@@ -1,4 +1,5 @@
 // Shared helpers for every screen.
+import { lateness, span } from './trips.js';
 
 export const $ = (sel, el = document) => el.querySelector(sel);
 export const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
@@ -370,12 +371,16 @@ function index(s) {
 }
 
 /** Plain-language "where is this taxi". */
-export function whereIs(s, t) {
+/** Where a taxi is, in words. pos (from the staff position stream) adds whether GPS is coming in. */
+export function whereIs(s, t, pos = null) {
   const q = s.queueByTaxi.get(t.id);
   if (t.status === 'EN_ROUTE') {
     const trip = s.tripById.get(t.tripId);
     if (!trip) return 'On the road';
-    return `To ${s.dest(trip.routeId)}, ${eta(trip.departedAt + trip.durationMs - clock.now())}`;
+    const { dueAt, lateMs, overdue } = lateness(trip, clock.now());
+    let text = `To ${s.dest(trip.routeId)}, ${overdue ? `overdue by ${span(lateMs)}` : eta(dueAt - clock.now())}`;
+    if (pos && !pos.gps) text += pos.lastGpsAt ? `. GPS lost ${ago(pos.lastGpsAt)}` : '. No GPS since it left';
+    return text;
   }
   if (q) return `${s.rankName(q.rankId)}, number ${q.position} to ${s.dest(q.routeId)}`;
   if (t.status === 'ARRIVED') return `Waiting at ${s.rankName(t.rankId)}`;

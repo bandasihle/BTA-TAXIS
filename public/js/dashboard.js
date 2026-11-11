@@ -4,6 +4,7 @@ import {
   whereIs, registerServiceWorker, STATUS_LABEL, STATUS_ORDER,
 } from './common.js';
 import { keepLabelsTidy } from './map-labels.js';
+import { lateness, span } from './trips.js';
 
 const me = await requireStaff(['admin']);
 renderTopbar('/dashboard.html', me);
@@ -102,7 +103,7 @@ function iconFor(p, selected) {
     className: 'taxi-icon',
     iconSize: [size, size],
     iconAnchor: anchor,
-    html: `<span class="tx tx-${p.status}${selected ? ' is-selected' : ''}"></span>`,
+    html: `<span class="tx tx-${p.status}${p.estimated ? ' is-est' : ''}${p.overdue ? ' is-late' : ''}${selected ? ' is-selected' : ''}"></span>`,
   });
 }
 
@@ -113,10 +114,11 @@ function drawTaxis() {
     const t = s.taxiById.get(p.id);
     if (!visible(t, p)) continue;
     seen.add(p.id);
-    const key = `${p.status}:${p.slot ?? ''}:${selectedTaxi === p.id}`;
+    const key = `${p.status}:${p.slot ?? ''}:${selectedTaxi === p.id}:${!!p.estimated}:${!!p.overdue}`;
+    const title = `${t.plate}: ${p.estimated ? 'on the road, estimated position (no GPS)' : STATUS_LABEL[p.status]}${p.overdue ? ', overdue' : ''}`;
     let m = taxiMarkers.get(p.id);
     if (!m) {
-      m = L.marker([p.lat, p.lng], { icon: iconFor(p, selectedTaxi === p.id), title: `${t.plate}: ${STATUS_LABEL[p.status]}`, riseOnHover: true })
+      m = L.marker([p.lat, p.lng], { icon: iconFor(p, selectedTaxi === p.id), title, riseOnHover: true })
         .on('click', () => selectTaxi(p.id))
         .addTo(taxiLayer);
       m.key = key;
@@ -127,7 +129,8 @@ function drawTaxis() {
         m.key = key;
       }
       m.setLatLng([p.lat, p.lng]);
-      m.options.title = `${t.plate}: ${STATUS_LABEL[p.status]}`;
+      m.options.title = title;
+      m.getElement()?.setAttribute('title', title);
     }
     m.setZIndexOffset(selectedTaxi === p.id ? 1000 : p.status === 'EN_ROUTE' ? 200 : 0);
   }
@@ -140,6 +143,21 @@ function drawTaxis() {
 }
 
 // ------------------------------------------------------------------ panel
+
+const posOf = (id) => positions.find((p) => p.id === id) ?? null;
+
+/** Trips well past their expected arrival, so someone marks them arrived or off duty. */
+function renderLate() {
+  const late = s.taxis
+    .filter((t) => t.status === 'EN_ROUTE' && s.tripById.get(t.tripId))
+    .map((t) => ({ t, trip: s.tripById.get(t.tripId), ...lateness(s.tripById.get(t.tripId), clock.now()) }))
+    .filter((x) => x.overdue)
+    .sort((a, b) => b.lateMs - a.lateMs);
+  const box = $('#late');
+  box.hidden = !late.length;
+  box.innerHTML = late.map(({ t, trip, lateMs }) => `<button class="late-row" type="button" data-taxi="${t.id}">
+      <b>${esc(t.plate)}</b> is overdue to ${esc(s.dest(trip.routeId))} by ${span(lateMs)}. Check with the driver, then mark it arrived or off duty.</button>`).join('');
+}
 
 function renderSummary() {
   const counts = Object.fromEntries(STATUS_ORDER.map((st) => [st, 0]));
@@ -243,7 +261,7 @@ function taxisHtml() {
   if (!taxis.length) return '<ul class="plist"><li class="empty">No taxis match these filters.</li></ul>';
   return `<ul class="plist">${taxis.map((t) => `<li class="clickable" data-taxi="${t.id}" tabindex="0">
       <div class="taxi-line">${plate(t.plate)}<span class="small muted">${esc(t.driverName ?? '')}</span>
-        <span class="where">${mark(t.status)} ${esc(whereIs(s, t))}</span></div>
+        <span class="where">${mark(t.status)} ${esc(whereIs(s, t, posOf(t.id)))}</span></div>
     </li>`).join('')}</ul>`;
 }
 
@@ -258,8 +276,9 @@ async function renderTaxiDetail(body) {
       <button class="btn sm quiet" type="button" id="detail-close">Back to list</button>
     </div>
     <p style="display:flex;gap:8px;align-items:center;font-weight:600">${mark(t.status)} ${STATUS_LABEL[t.status]}</p>
-    <p>${esc(whereIs(s, t))}</p>
-    ${trip ? `<div class="progress"><i style="width:${pct.toFixed(0)}%"></i></div>` : ''}
+    <p>${esc(whereIs(s, t, posOf(t.id)))}</p>
+    ${posOf(t.id)?.estimated ? "<p class='hint'>The map shows this taxi where it should be by now. The driver's phone is not sending a location.</p>" : ''}
+    ${trip ? `<div class="progress${lateness(trip, clock.now()).overdue ? ' is-late' : ''}"><i style="width:${pct.toFixed(0)}%"></i></div>` : ''}
     ${q ? `<div style="display:flex;gap:16px;align-items:center">${busSeats(q.seats, t.capacity)}<p><b style="font-family:var(--font-cond);font-size:34px">${q.seats}</b> of ${t.capacity} seated</p></div>` : ''}
     <dl>
       <dt>Driver</dt><dd>${esc(t.driverName ?? 'Not recorded')}</dd>
@@ -313,6 +332,11 @@ function selectRank(id) {
 }
 
 // ------------------------------------------------------------------ wiring
+
+$('#late').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-taxi]');
+  if (b) selectTaxi(Number(b.dataset.taxi));
+});
 
 $('#summary').addEventListener('click', (e) => {
   const b = e.target.closest('[data-state]');
@@ -372,6 +396,7 @@ connect({
   onSnapshot(snap) {
     s = snap;
     renderSummary();
+    renderLate();
     renderRouteFilter();
     drawStatic();
     drawTaxis();
@@ -388,6 +413,7 @@ connect({
 // refresh ETAs and the open taxi detail now and then
 setInterval(() => {
   if (!s) return;
+  renderLate();
   if (selectedTaxi) renderPanel();
   else if (tab === 'taxis') renderPanel();
 }, 10_000);

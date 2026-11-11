@@ -373,6 +373,13 @@ a.role:hover h2 { text-decoration: underline; text-decoration-thickness: 2px; te
 .tx-QUEUED { width: 12px; height: 12px; background: var(--surface); border: 2.5px solid var(--ink); }
 .tx-ARRIVED { width: 11px; height: 11px; background: var(--wait); border: 1.5px solid #fff; border-radius: 2px; }
 .tx.is-selected { outline: 3px solid var(--accent); outline-offset: 3px; }
+/* on the road with no GPS: drawn where it should be, hollow and dashed so it reads as a guess */
+.tx.is-est { background: var(--surface); border: 2.5px dashed var(--go); box-shadow: none; opacity: 0.85; }
+.tx.is-late { box-shadow: 0 0 0 3px var(--stop); }
+.late { display: grid; gap: 6px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.late-row { text-align: left; font: inherit; font-size: 14px; color: var(--ink); background: var(--surface-2); border: 0; border-left: 4px solid var(--stop); border-radius: 8px; padding: 10px 12px; min-height: 44px; cursor: pointer; }
+.late-row b { font-family: var(--font-cond); }
+.late-row:hover { background: var(--line); }
 
 .rank-pin { position: relative; width: 0; height: 0; }
 .rank-pin .dot {
@@ -438,6 +445,7 @@ a.role:hover h2 { text-decoration: underline; text-decoration-thickness: 2px; te
 
 .progress { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
 .progress i { display: block; height: 100%; background: var(--go); }
+.progress.is-late i { background: var(--stop); }
 
 /* ------------------------------------------------------------------ editor */
 
