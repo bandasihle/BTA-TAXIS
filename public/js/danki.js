@@ -14,6 +14,7 @@ import { lookup, buildDirectory, priceLabel, timeLabel, dayLabel, runningNow, sa
 import { esc, local, registerServiceWorker, connect, api } from './common.js';
 import { mountMenu } from './menu.js';
 import { keepLabelsTidy } from './map-labels.js';
+import { offerInstall } from './install.js';
 
 let cached = local.get('directory');
 let tree;
@@ -246,6 +247,7 @@ function render() {
   updateLive();
   drawTaxis();
   watchTitle();
+  if (rank) offerInstall();
 
   if (!first) {
     panel.scrollTop = 0;

@@ -437,3 +437,12 @@ test('the download page, privacy page and app version are public; the APK link w
   const apk = await fetch(`${BASE}/download/dankie-driver.apk`, { redirect: 'manual' });
   assert.equal(apk.status, 404);
 });
+
+test('robots.txt keeps crawlers off the API and staff screens', async () => {
+  const r = await fetch(`${BASE}/robots.txt`);
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-type'), /^text\/plain/);
+  const body = await r.text();
+  assert.match(body, /^Disallow: \/api\/$/m);
+  assert.match(body, /^Allow: \/$/m);
+});

@@ -224,3 +224,19 @@ button { font: inherit; color: inherit; }
 @media (pointer: coarse), (max-width: 760px) {
   .leaflet-touch .leaflet-bar a { width: 44px !important; height: 44px !important; line-height: 44px !important; font-size: 22px !important; }
 }
+
+/* "Add to home screen" bar (js/install.js) */
+.dk-install {
+  position: fixed; z-index: 1200; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+  max-width: 436px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 12px 14px;
+  background: var(--ink); color: var(--white); border-radius: 14px; box-shadow: var(--lift); font: 400 15px/1.4 var(--ui);
+  animation: dk-install-in 0.3s var(--ease);
+}
+.dk-install p { margin: 0; flex: 1 1 220px; }
+.dk-install-do { display: flex; gap: 8px; margin-left: auto; }
+.dk-install button { min-height: 44px; padding: 0 16px; border-radius: 10px; font: 600 15px var(--ui); cursor: pointer; }
+.dk-install-go { border: 0; background: var(--red); color: var(--white); }
+.dk-install-x { border: 1px solid rgba(255, 255, 255, 0.35); background: transparent; color: var(--white); }
+.dk-install button:focus-visible { outline: 2px solid var(--white); outline-offset: 2px; }
+@keyframes dk-install-in { from { opacity: 0; translate: 0 12px; } }
+@media (prefers-reduced-motion: reduce) { .dk-install { animation: none; } }

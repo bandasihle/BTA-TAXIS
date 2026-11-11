@@ -1,0 +1,12 @@
+# The passenger pages are for everyone. The API and the staff screens are not search results.
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /login
+Disallow: /dashboard
+Disallow: /editor
+Disallow: /users
+Disallow: /fares
+Disallow: /staff
+Disallow: /marshal
+Disallow: /rank
