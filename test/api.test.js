@@ -134,6 +134,47 @@ test('the public sign-in check answers quietly and never leaks the session id', 
   assert.equal((await call('GET', '/api/me')).status, 401);
 });
 
+test('an admin can add a driver with a new taxi typed in, saved together or not at all', async () => {
+  const plates = async () => (await call('GET', '/api/snapshot')).data.taxis.map((t) => t.plate);
+  const made = await call('POST', '/api/users', {
+    cookie: adminCookie, body: { name: 'Driver Thabo', phone: '0844000001', role: 'driver', newTaxi: { plate: 'nd 44 tt gp', capacity: 22 } },
+  });
+  assert.equal(made.status, 201);
+  const taxi = (await call('GET', '/api/snapshot')).data.taxis.find((t) => t.plate === 'ND 44 TT GP');
+  assert.ok(taxi, 'the plate is registered, tidied to capitals');
+  assert.equal(taxi.capacity, 22);
+  assert.equal(made.data.user.taxiId, taxi.id);
+
+  // the phone is taken: neither the driver nor the taxi is saved
+  const dupPhone = await call('POST', '/api/users', {
+    cookie: adminCookie, body: { name: 'Again', phone: '0844000001', role: 'driver', newTaxi: { plate: 'ND 55 TT GP' } },
+  });
+  assert.equal(dupPhone.status, 409);
+  assert.equal((await plates()).includes('ND 55 TT GP'), false);
+
+  // the plate is taken or too short: the driver is not saved either
+  for (const plate of ['ND 44 TT GP', 'X1']) {
+    const r = await call('POST', '/api/users', { cookie: adminCookie, body: { name: 'Nobody', phone: '0844000002', role: 'driver', newTaxi: { plate } } });
+    assert.ok([400, 409].includes(r.status), plate);
+  }
+  assert.equal((await call('GET', '/api/users', { cookie: adminCookie })).data.some((u) => u.phone?.endsWith('844000002')), false);
+  assert.equal((await call('POST', '/api/users', { cookie: adminCookie, body: { name: 'Odd', phone: '0844000003', role: 'driver', newTaxi: 'ND 66' } })).status, 400);
+
+  // editing a driver: switch them to another new taxi
+  const edited = await call('PUT', `/api/users/${made.data.user.id}`, {
+    cookie: adminCookie, body: { name: 'Driver Thabo', role: 'driver', active: true, newTaxi: { plate: 'ND 77 TT GP', capacity: 15 } },
+  });
+  assert.equal(edited.status, 200);
+  const second = (await call('GET', '/api/snapshot')).data.taxis.find((t) => t.plate === 'ND 77 TT GP');
+  assert.equal(edited.data.user.taxiId, second.id);
+  // a bad plate on edit leaves the driver as they were
+  const bad = await call('PUT', `/api/users/${made.data.user.id}`, { cookie: adminCookie, body: { name: 'Changed', role: 'driver', active: true, newTaxi: { plate: 'ND 44 TT GP' } } });
+  assert.equal(bad.status, 409);
+  const after = (await call('GET', '/api/users', { cookie: adminCookie })).data.find((u) => u.id === made.data.user.id);
+  assert.equal(after.name, 'Driver Thabo');
+  assert.equal(after.taxiId, second.id);
+});
+
 test('a forged or expired session is refused', async () => {
   assert.equal((await call('GET', '/api/users', { cookie: 'bta_session=' + 'A'.repeat(43) })).status, 401);
   assert.equal((await call('GET', '/api/users', { token: 'not-a-real-token-at-all-1234567890' })).status, 401);

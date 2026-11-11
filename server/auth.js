@@ -131,24 +131,31 @@ export function createAuth(db, opts = {}) {
 
   // ---------------------------------------------------------------- accounts
 
-  async function createUser(input = {}) {
+  /**
+   * @param {object} input name, phone, role, rankId, taxiId
+   * @param {{ makeTaxi?: () => number, tx?: (fn: () => any) => any }} [withTaxi] registers a new
+   *   taxi for a driver in the same transaction as the account, so neither is saved without the other
+   */
+  async function createUser(input = {}, { makeTaxi, tx } = {}) {
     const name = cleanName(input.name);
     const phone = normalizePhone(input.phone);
     if (!phone) throw new HttpError(400, 'Enter a South African cellphone number, like 082 123 4567.');
     const role = String(input.role ?? '');
     if (!ROLES.includes(role)) throw new HttpError(400, 'Choose a role: admin, marshal or driver.');
     const rankId = validRank(role, input.rankId);
-    const taxiId = validTaxi(role, input.taxiId);
+    const newTaxi = role === 'driver' && makeTaxi && tx;
+    const taxiId = newTaxi ? null : validTaxi(role, input.taxiId);
     if (one('SELECT id FROM users WHERE phone = ?', phone)) throw new HttpError(409, 'Someone already has an account with that phone number.');
     // A PIN chosen by someone else is temporary: the person must set their own when they sign in.
     let pin = input.pin;
     if (pin == null) pin = randomPin();
     else if (pinProblem(pin)) throw new HttpError(400, pinProblem(pin));
     const hash = await hashPin(pin);
-    const res = run(
+    const insert = (taxi) => run(
       'INSERT INTO users (name, phone, role, rank_id, taxi_id, pin_hash, must_change_pin, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?)',
-      name, phone, role, rankId, taxiId, hash, now(),
+      name, phone, role, rankId, taxi, hash, now(),
     );
+    const res = newTaxi ? tx(() => insert(makeTaxi())) : insert(taxiId);
     return { user: publicUser(getUser(res.lastInsertRowid)), pin, message: `${name} added` };
   }
 

@@ -12,7 +12,14 @@ let users = [];
 
 const rankOptions = (selected) => ranks.map((r) => `<option value="${r.id}"${r.id === selected ? ' selected' : ''}>${esc(r.name)}</option>`).join('');
 const rankName = (id) => ranks.find((r) => r.id === id)?.name ?? 'No rank';
-const taxiOptions = (selected) => `<option value="">Not linked yet</option>${taxis.map((t) => `<option value="${t.id}"${t.id === selected ? ' selected' : ''}>${esc(t.plate)}</option>`).join('')}`;
+const taxiOptions = (selected) => `<option value="">Not linked yet</option>
+  <option value="new"${selected === 'new' ? ' selected' : ''}>Add a new taxi</option>
+  ${taxis.map((t) => `<option value="${t.id}"${t.id === selected ? ' selected' : ''}>${esc(t.plate)}</option>`).join('')}`;
+/** What to send for the taxi picker: an existing taxi's id, or a new taxi's plate and seats. */
+function taxiChoice(value, plate, seats) {
+  if (value === 'new') return { newTaxi: { plate: plate.trim(), capacity: Number(seats) || 15 } };
+  return { taxiId: value ? Number(value) : null };
+}
 const plateOf = (id) => taxis.find((t) => t.id === id)?.plate;
 
 async function load() {
@@ -24,7 +31,9 @@ async function load() {
     return toast(err.message, 'error');
   }
   if (!$('#add-rank').options.length) $('#add-rank').innerHTML = rankOptions(null);
-  $('#add-taxi').innerHTML = taxiOptions(Number($('#add-taxi').value) || null);
+  const was = $('#add-taxi').value;
+  $('#add-taxi').innerHTML = taxiOptions(was === 'new' ? 'new' : Number(was) || null);
+  syncRankField();
   render();
 }
 
@@ -71,11 +80,18 @@ function showPin(name, pin) {
 
 // ------------------------------------------------------------------ add
 
-const syncRankField = () => {
-  $('#add-rank-wrap').hidden = $('#add-role').value !== 'marshal';
-  $('#add-taxi-wrap').hidden = $('#add-role').value !== 'driver';
-};
+function syncRankField() {
+  const role = $('#add-role').value;
+  const newTaxi = role === 'driver' && $('#add-taxi').value === 'new';
+  $('#add-rank-wrap').hidden = role !== 'marshal';
+  $('#add-taxi-wrap').hidden = role !== 'driver';
+  $('#add-plate-wrap').hidden = $('#add-seats-wrap').hidden = !newTaxi;
+}
 $('#add-role').addEventListener('change', syncRankField);
+$('#add-taxi').addEventListener('change', () => {
+  syncRankField();
+  if ($('#add-taxi').value === 'new') $('#add-plate').focus();
+});
 syncRankField();
 
 $('#add').addEventListener('submit', async (e) => {
@@ -85,11 +101,14 @@ $('#add').addEventListener('submit', async (e) => {
     const role = $('#add-role').value;
     const body = { name: $('#add-name').value, phone: $('#add-phone').value, role };
     if (role === 'marshal') body.rankId = Number($('#add-rank').value);
-    if (role === 'driver' && $('#add-taxi').value) body.taxiId = Number($('#add-taxi').value);
+    if (role === 'driver') Object.assign(body, taxiChoice($('#add-taxi').value, $('#add-plate').value, $('#add-seats').value));
     try {
       const r = await api('/api/users', { method: 'POST', body });
       $('#add-name').value = '';
       $('#add-phone').value = '';
+      $('#add-plate').value = '';
+      $('#add-seats').value = '15';
+      $('#add-taxi').value = '';
       await load();
       showPin(r.user.name, r.pin);
     } catch (err) {
@@ -112,6 +131,8 @@ function editDialog(u) {
       </label>
       <label class="field" data-rank>Rank <select class="input" name="rankId">${rankOptions(u.rankId)}</select></label>
       <label class="field" data-taxi>Taxi they drive <select class="input" name="taxiId">${taxiOptions(u.taxiId)}</select></label>
+      <label class="field" data-newtaxi>Number plate <input class="input" name="plate" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="JB 21 MN GP"></label>
+      <label class="field" data-newtaxi>Seats <input class="input" name="seats" type="number" inputmode="numeric" min="4" max="35" value="15"></label>
       <label class="check"><input type="checkbox" name="active"${u.active ? ' checked' : ''}> Can sign in</label>
       <p class="small muted">Switching someone off or changing their role signs them out on every phone straight away.</p>
       <div class="dialog-actions">
@@ -125,15 +146,21 @@ function editDialog(u) {
   const sync = () => {
     form.querySelector('[data-rank]').hidden = field('role').value !== 'marshal';
     form.querySelector('[data-taxi]').hidden = field('role').value !== 'driver';
+    const newTaxi = field('role').value === 'driver' && field('taxiId').value === 'new';
+    for (const el of form.querySelectorAll('[data-newtaxi]')) el.hidden = !newTaxi;
   };
   field('role').addEventListener('change', sync);
+  field('taxiId').addEventListener('change', () => {
+    sync();
+    if (field('taxiId').value === 'new') field('plate').focus();
+  });
   sync();
   form.addEventListener('submit', async (e) => {
     if (e.submitter?.value !== 'save') return;
     e.preventDefault(); // keep the dialog open until the server agrees
     const body = { name: field('name').value, role: field('role').value, active: field('active').checked };
     if (body.role === 'marshal') body.rankId = Number(field('rankId').value);
-    if (body.role === 'driver') body.taxiId = field('taxiId').value ? Number(field('taxiId').value) : null;
+    if (body.role === 'driver') Object.assign(body, taxiChoice(field('taxiId').value, field('plate').value, field('seats').value));
     try {
       toast((await api(`/api/users/${u.id}`, { method: 'PUT', body })).message);
       dlg.close();

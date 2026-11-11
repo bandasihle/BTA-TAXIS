@@ -508,7 +508,7 @@ a.role:hover h2 { text-decoration: underline; text-decoration-thickness: 2px; te
 /* ---------------------------------------------------------------- staff accounts */
 .users { max-width: 900px; margin: 0 auto; padding: 24px 16px 48px; display: flex; flex-direction: column; gap: 20px; }
 .users h1 { font-family: var(--font-cond); font-weight: 700; font-size: 40px; line-height: 1; }
-.users-add { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); padding: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 12px; align-items: end; }
+.users-add { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; }
 @media (max-width: 760px) { .users-add { grid-template-columns: 1fr 1fr; } .users-add .btn { grid-column: 1 / -1; } }
 .user-list { list-style: none; display: flex; flex-direction: column; gap: 8px; padding: 0; }
 .user-row { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }

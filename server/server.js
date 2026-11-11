@@ -395,13 +395,20 @@ async function api(req, res, url) {
     return json(res, 200, auth.listUsers());
   }
   if (m === 'POST' && p === '/api/users') {
-    need(req, ['admin']);
-    const { pin: _ignored, ...body } = await readBody(req);
-    return json(res, 201, await auth.createUser(body));
+    const user = need(req, ['admin']);
+    const { pin: _ignored, newTaxi, ...body } = await readBody(req);
+    const plan = newTaxi != null && body.role === 'driver'
+      ? { makeTaxi: () => store.createTaxi({ ...taxiFields(newTaxi), by: user.name }).id, tx: oneChange }
+      : {};
+    return json(res, 201, await auth.createUser(body, plan));
   }
   if (m === 'PUT' && (match = p.match(/^\/api\/users\/(\d+)$/))) {
     const user = need(req, ['admin']);
-    const { leftTaxi, ...r } = auth.updateUser(user, match[1], await readBody(req));
+    const { newTaxi, ...input } = await readBody(req);
+    const { leftTaxi, ...r } = newTaxi != null && input.role === 'driver'
+      // the new taxi and the change to the driver are saved together, or not at all
+      ? oneChange(() => auth.updateUser(user, match[1], { ...input, taxiId: store.createTaxi({ ...taxiFields(newTaxi), by: user.name }).id }))
+      : auth.updateUser(user, match[1], input);
     if (leftTaxi != null) positions.forget(leftTaxi);
     closeDeadStreams();
     store.emitChange(); // marshal names on the staff screens
@@ -416,6 +423,15 @@ async function api(req, res, url) {
 
   throw new HttpError(404, 'No such API endpoint.');
 }
+
+/** A new taxi typed in by an admin on the staff screen: only its plate and seats are taken. */
+function taxiFields(t) {
+  if (typeof t !== 'object' || Array.isArray(t)) throw new HttpError(400, 'Enter the number plate of the new taxi.');
+  return { plate: t.plate, capacity: t.capacity };
+}
+
+/** Runs writes in one transaction; screens hear about it once, after it is saved or undone. */
+const oneChange = (fn) => store.quietly(() => store.tx(fn));
 
 // ------------------------------------------------------------------ static files
 
