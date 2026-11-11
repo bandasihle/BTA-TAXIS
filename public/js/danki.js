@@ -538,5 +538,5 @@ registerServiceWorker();
 
 // The menu shows the screens of whoever is signed in on this phone, or staff sign in.
 Promise.race([api('/api/session'), new Promise((_, no) => setTimeout(no, 3000))])
-  .then(({ user }) => mountMenu(document.getElementById('menu-btn'), { user: user && !user.mustChangePin ? user : null }))
+  .then(({ user, staffWeb }) => mountMenu(document.getElementById('menu-btn'), { user: user && !user.mustChangePin ? user : null, staffWeb }))
   .catch(() => mountMenu(document.getElementById('menu-btn')));

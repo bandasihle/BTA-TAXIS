@@ -46,10 +46,11 @@
     </section>
 
     <button class="gate-staff" type="button" id="staff-open" aria-controls="signin" aria-expanded="false" hidden>Staff sign in</button>
+    <a class="gate-staff" id="get-app" href="/download" hidden>Drivers and marshals: get the app</a>
 
     <form class="gate-card slip-paper" id="signin" novalidate aria-labelledby="s-head" hidden>
       <span class="slip-label" id="s-head">Staff sign in</span>
-      <p>Drivers, rank marshals and the association office sign in with their cellphone number and PIN.</p>
+      <p id="s-blurb">Drivers, rank marshals and the association office sign in with their cellphone number and PIN.</p>
       <label class="gate-field">Cellphone number
         <input class="gate-input" id="phone" type="tel" inputmode="tel" autocomplete="username" placeholder="082 123 4567" maxlength="20" required>
       </label>

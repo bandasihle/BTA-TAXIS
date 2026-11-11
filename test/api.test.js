@@ -122,9 +122,9 @@ test('nothing that changes data works without signing in', async () => {
 test('the public sign-in check answers quietly and never leaks the session id', async () => {
   const anon = await call('GET', '/api/session');
   assert.equal(anon.status, 200);
-  assert.deepEqual(anon.data, { user: null });
+  assert.deepEqual(anon.data, { user: null, staffWeb: 'on' });
   const forged = await call('GET', '/api/session', { cookie: 'bta_session=' + 'A'.repeat(43) });
-  assert.deepEqual(forged.data, { user: null });
+  assert.deepEqual(forged.data, { user: null, staffWeb: 'on' });
   const mine = await call('GET', '/api/session', { cookie: adminCookie });
   assert.equal(mine.status, 200);
   assert.equal(mine.data.user.role, 'admin');

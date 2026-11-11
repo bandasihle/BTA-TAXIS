@@ -13,6 +13,10 @@ services:
       # Render's proxy adds one X-Forwarded-For entry; the sign-in limit trusts only that one.
       - key: TRUST_PROXY_HOPS
         value: "1"
+      # Staff on the website: admins only, so the office works on a computer. Marshals and
+      # drivers sign in on the Dankie Driver app. (on = every staff role, off = app only.)
+      - key: WEB_STAFF
+        value: admin
       # The first admin: set both as secrets in the Render dashboard, never in this file.
       - key: BOOTSTRAP_ADMIN_PHONE
         sync: false

@@ -3,8 +3,10 @@ import { mountMenu } from './menu.js';
 
 // The same header as every other screen: staff get their screens and the Menu; anyone else
 // (a passenger, or the wall screen before anyone signs in) gets the Dankie Driver bar and Menu.
+let staffWeb = 'on';
 api('/api/session')
-  .then(({ user: me }) => {
+  .then(({ user: me, staffWeb: mode }) => {
+    staffWeb = mode ?? 'on';
     if (!me || me.mustChangePin || !['admin', 'marshal'].includes(me.role)) throw new Error('not staff');
     renderTopbar('/board.html', me);
     if (me.role === 'marshal' && !new URLSearchParams(location.search).get('rank')) {
@@ -20,7 +22,7 @@ api('/api/session')
         <span class="sh-end"><button class="sh-btn sh-menu" id="menu-btn" type="button"></button>
           <img src="/img/dankie-logo-128.jpg" width="36" height="36" alt="Dankie Driver, Benoni Taxi Association"></span>
       </div>`;
-    mountMenu($('#menu-btn'));
+    mountMenu($('#menu-btn'), { staffWeb });
   });
 
 // On the wall the screen hides the header and fills the display; Esc or a tap on the button

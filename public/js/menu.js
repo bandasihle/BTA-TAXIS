@@ -1,7 +1,7 @@
 // The app menu: the header's Menu button opens a sheet listing where this person can go,
 // who is signed in, and signing in or out. The server checks every screen again; the menu
 // only leaves out what a role can't open.
-import { esc, NAV, navHref, signOut } from './common.js';
+import { esc, NAV, navHref, signOut, IS_APP } from './common.js';
 
 const ROLE = { admin: 'Association office', marshal: 'Rank marshal', driver: 'Driver' };
 const ICON = {
@@ -19,6 +19,17 @@ function loadCss() {
   document.head.append(link);
 }
 
+/**
+ * Signing in, for someone not signed in. On the website it follows the server's WEB_STAFF
+ * setting: everyone ("on"), the office only ("admin"), or nobody ("off"); the app always signs in.
+ */
+function signInBlock(staffWeb) {
+  if (IS_APP || staffWeb === 'on') return '<a class="mn-in" href="/login.html#staff">Staff sign in</a><p>For drivers, rank marshals and the association office.</p>';
+  const getApp = '<a class="mn-in mn-quiet" href="/download">Get the staff app</a><p>Drivers and rank marshals use the Dankie Driver app.</p>';
+  if (staffWeb === 'admin') return `<a class="mn-in" href="/login.html#staff">Office sign in</a><p>For the association office.</p>${getApp}`;
+  return getApp;
+}
+
 function items(user) {
   const list = [['/', 'Find a taxi', 'Ranks, fares and taxis on the way']];
   if (user?.role === 'driver') list.push(['/driver.html', 'Share my location', 'Start and stop sharing your taxi\'s position']);
@@ -30,7 +41,7 @@ function items(user) {
 }
 
 /** Wires `button` to open the menu. `onSignOut` lets a screen tidy up first (the driver's GPS). */
-export function mountMenu(button, { user = null, current = location.pathname, onSignOut = signOut } = {}) {
+export function mountMenu(button, { user = null, staffWeb = 'on', current = location.pathname, onSignOut = signOut } = {}) {
   if (!button) return;
   loadCss();
   if (!button.querySelector('svg') && !button.textContent.trim()) button.innerHTML = `${ICON.menu}<span>Menu</span>`;
@@ -51,7 +62,7 @@ export function mountMenu(button, { user = null, current = location.pathname, on
         <span>${esc(label)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</a></li>`).join('')}
     </ul></nav>
     <div class="mn-end">
-      ${user ? '<button class="mn-out" type="button">Sign out</button>' : '<a class="mn-in" href="/login.html#staff">Staff sign in</a><p>For drivers, rank marshals and the association office.</p>'}
+      ${user ? '<button class="mn-out" type="button">Sign out</button>' : signInBlock(staffWeb)}
     </div>
     <p class="mn-foot">Benoni Taxi Association. The wheels of the nation.</p>`;
   document.body.append(dlg);

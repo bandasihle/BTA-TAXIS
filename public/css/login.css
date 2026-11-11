@@ -60,7 +60,7 @@ body.gate { background: linear-gradient(var(--blue) 0 200px, var(--paper) 200px)
 #signin .gate-go, #newpin .gate-go { background: var(--ink); }
 /* staff sign-in folded away: a quiet text link under the passenger card */
 .gate-staff {
-  align-self: center; min-height: 44px; padding: 0 12px; border: 0; background: none; cursor: pointer;
+  align-self: center; display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border: 0; background: none; cursor: pointer;
   font: 500 15px var(--ui); color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px;
 }
 .gate-staff:hover { color: var(--ink); }

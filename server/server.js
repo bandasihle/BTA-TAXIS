@@ -39,6 +39,36 @@ if (!auth.hasUsers() && process.env.BOOTSTRAP_ADMIN_PHONE && process.env.BOOTSTR
 const STAFF = ['admin', 'marshal'];
 const COOKIE = 'bta_session';
 
+// Who may use the staff screens in a web browser. The Android app always can.
+//   on     every staff role (the default: local preview and tests)
+//   admin  admins only, so the office works on a computer; marshals and drivers use the app
+//   off    nobody: every staff member uses the app
+// A value that is set but not one of these stops the server, rather than guessing.
+const WEB_STAFF = process.env.WEB_STAFF ?? 'on';
+if (!['on', 'admin', 'off'].includes(WEB_STAFF)) throw new Error(`WEB_STAFF must be on, admin or off, not "${WEB_STAFF}"`);
+const WEB_ROLES = { on: ['admin', 'marshal', 'driver'], admin: ['admin'], off: [] }[WEB_STAFF];
+const onWeb = (role) => WEB_ROLES.includes(role);
+
+// The staff pages and their entry scripts, with the roles that use them. One no web role uses
+// is not served to browsers at all, so its code is not handed to every visitor.
+const STAFF_FILES = {
+  'staff.html': ['admin'], 'js/home.js': ['admin'],
+  'dashboard.html': ['admin'], 'js/dashboard.js': ['admin'],
+  'editor.html': ['admin'], 'js/editor.js': ['admin'],
+  'users.html': ['admin'], 'js/users.js': ['admin'],
+  'fares.html': ['admin'], 'js/fares-admin.js': ['admin'],
+  'marshal.html': ['admin', 'marshal'], 'js/marshal.js': ['admin', 'marshal'],
+  'rank.html': ['admin', 'marshal'], 'js/rank.js': ['admin', 'marshal'],
+  'driver.html': ['driver'], 'js/driver.js': ['driver'],
+};
+/** True when `rel` (a path inside public/) is a staff file that no web role uses. */
+function hiddenOnWeb(rel) {
+  // compared lower-case, without trailing dots or spaces, as some file systems ignore both
+  const key = rel.replace(/^\/+/, '').toLowerCase().replace(/[. ]+$/, '');
+  const roles = STAFF_FILES[key];
+  return !!roles && !roles.some(onWeb);
+}
+
 // ------------------------------------------------------------------ live updates (SSE)
 
 const clients = new Set();
@@ -94,7 +124,7 @@ function stream(req, res, url) {
   let user = null;
   if (url.searchParams.get('staff') === '1') {
     const ticket = url.searchParams.get('ticket');
-    user = ticket ? auth.redeemTicket(ticket) : auth.authenticate(cookies(req)[COOKIE]);
+    user = ticket ? auth.redeemTicket(ticket) : cookieUser(cookies(req)[COOKIE]);
     if (!user) throw new HttpError(401, 'Sign in to see the staff view.');
     if (user.mustChangePin || !STAFF.includes(user.role)) throw new HttpError(403, 'Your account cannot see the staff view.');
   }
@@ -209,7 +239,7 @@ function signedIn(req) {
   const header = String(req.headers.authorization ?? '');
   if (header.startsWith('Bearer ')) return auth.authenticate(header.slice(7).trim());
   const token = cookies(req)[COOKIE];
-  if (!token) return null;
+  if (!token || !WEB_ROLES.length) return null; // with staff off on the website, cookies mean nothing
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     let host = null;
     try {
@@ -219,7 +249,13 @@ function signedIn(req) {
     }
     if (!host || host !== req.headers.host) throw new HttpError(403, 'This request did not come from the tracker.');
   }
-  return auth.authenticate(token);
+  return cookieUser(token);
+}
+
+/** The user of a website session cookie, if their role may use the website. */
+function cookieUser(token) {
+  const user = auth.authenticate(token);
+  return user && onWeb(user.role) ? user : null;
 }
 
 /** Throws unless someone with one of `roles` is signed in (and has set their own PIN). */
@@ -252,10 +288,19 @@ async function api(req, res, url) {
   // signing in and out
   if (m === 'POST' && p === '/api/login') {
     const body = await readBody(req);
-    const app = body.client === 'app';
+    // With staff limited on the website, "the app" must also come from the app's own origin.
+    const app = body.client === 'app' && (WEB_STAFF === 'on' || APP_ORIGINS.has(req.headers.origin));
+    // Refused before the PIN is checked, so it is not a try and cannot be used to lock anyone out.
+    if (!app && WEB_STAFF === 'off') throw new HttpError(403, 'Staff sign in on the Dankie Driver app.');
     const r = await auth.login(body, { ip: clientIp(req), client: app ? 'app' : 'web' });
     // The website gets an HttpOnly cookie that scripts cannot read; the app keeps the token.
     if (app) return json(res, 200, { user: r.user, token: r.token, expiresAt: r.expiresAt });
+    if (!onWeb(r.user.role)) {
+      // The PIN was right but this role works in the app. Saying so tells nothing the app's own
+      // sign-in would not, and it has the same limits. The session is ended at once.
+      auth.logout(auth.authenticate(r.token));
+      throw new HttpError(403, 'Drivers and marshals sign in on the Dankie Driver app.');
+    }
     return json(res, 200, { user: r.user, expiresAt: r.expiresAt }, { 'Set-Cookie': sessionCookie(req, r.token, Math.floor((r.expiresAt - Date.now()) / 1000)) });
   }
   if (m === 'POST' && p === '/api/logout') {
@@ -268,9 +313,9 @@ async function api(req, res, url) {
   // the normal answer there, so it is a 200 with user: null rather than a 401 error.
   if (m === 'GET' && p === '/api/session') {
     const user = signedIn(req);
-    if (!user) return json(res, 200, { user: null });
+    if (!user) return json(res, 200, { user: null, staffWeb: WEB_STAFF });
     const { sessionId, ...me } = user;
-    return json(res, 200, { user: me });
+    return json(res, 200, { user: me, staffWeb: WEB_STAFF });
   }
   if (m === 'GET' && p === '/api/me') {
     const user = signedIn(req);
@@ -449,6 +494,7 @@ const TYPES = {
 function serveFile(res, base, rel) {
   const file = path.resolve(base, '.' + path.posix.normalize('/' + rel));
   if (!file.startsWith(base + path.sep)) return false;
+  if (base === PUBLIC && hiddenOnWeb(path.relative(PUBLIC, file).split(path.sep).join('/'))) return false;
   let stat;
   try {
     stat = fs.statSync(file);

@@ -29,11 +29,20 @@ function nextPage(user) {
 const STAFF_DEVICE = 'dk:staff-device';
 const remembered = () => { try { return localStorage.getItem(STAFF_DEVICE) === '1'; } catch { return false; } };
 let staffOpen = IS_APP || remembered() || location.hash === '#staff' || new URLSearchParams(location.search).has('next');
+// Who may sign in here, from the server's WEB_STAFF setting. The app always may.
+let staffWeb = 'on';
 
 function show(form) {
+  const mode = IS_APP ? 'on' : staffWeb;
+  if (mode === 'admin') {
+    $('#staff-open').textContent = 'Office sign in';
+    $('#s-head').textContent = 'Office sign in';
+    $('#s-blurb').textContent = 'For the association office. Drivers and rank marshals sign in on the Dankie Driver app.';
+  }
   newpin.hidden = form !== newpin;
-  signin.hidden = form !== signin || !staffOpen;
-  $('#staff-open').hidden = form !== signin || staffOpen;
+  signin.hidden = form !== signin || !staffOpen || mode === 'off';
+  $('#staff-open').hidden = form !== signin || staffOpen || mode === 'off';
+  $('#get-app').hidden = form !== signin || mode === 'on';
   $('#staff-open').setAttribute('aria-expanded', String(!signin.hidden));
   $('#passenger').closest('.gate-card').hidden = form === newpin;
   $('#gate-title').textContent = form === newpin ? 'Choose your PIN' : 'Find your taxi';
@@ -63,7 +72,9 @@ const timeout = new Promise((_, reject) => setTimeout(() => reject(Object.assign
 let me = null;
 let offline = false;
 try {
-  me = (await Promise.race([api('/api/session'), timeout])).user; // null when nobody is signed in
+  const s = await Promise.race([api('/api/session'), timeout]);
+  me = s.user; // null when nobody is signed in
+  staffWeb = s.staffWeb ?? 'on';
 } catch (err) {
   offline = !err.status; // no answer at all, as opposed to "not signed in"
 }
