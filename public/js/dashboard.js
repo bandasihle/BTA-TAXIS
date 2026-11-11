@@ -3,6 +3,7 @@ import {
   $, $$, esc, local, renderTopbar, requireStaff, connect, api, plate, mark, seatBar, busSeats, eta, ago, clockTime, clock,
   whereIs, registerServiceWorker, STATUS_LABEL, STATUS_ORDER,
 } from './common.js';
+import { keepLabelsTidy } from './map-labels.js';
 
 const me = await requireStaff(['admin']);
 renderTopbar('/dashboard.html', me);
@@ -27,6 +28,7 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 const routeLayer = L.layerGroup().addTo(map);
 const rankLayer = L.layerGroup().addTo(map);
+const tidyLabels = keepLabelsTidy(map, { pin: '.rank-pin', label: '.label' });
 const taxiLayer = L.layerGroup().addTo(map);
 const taxiMarkers = new Map();
 let fitted = false;
@@ -52,7 +54,7 @@ function drawStatic() {
     const icon = L.divIcon({
       className: '',
       iconSize: [0, 0],
-      html: `<div class="rank-pin${rank.verified ? '' : ' is-guess'}${selectedRank === rank.id ? ' is-selected' : ''}">
+      html: `<div class="rank-pin${rank.verified ? '' : ' is-guess'}${selectedRank === rank.id ? ' is-selected' : ''}" data-p="${selectedRank === rank.id ? 2 : queued ? 1 : 0}">
         <span class="dot"></span><span class="label">${esc(rank.name)}${queued ? `<b>${queued}</b>` : ''}</span></div>`,
     });
     L.marker([rank.lat, rank.lng], { icon, title: `${rank.name}${rank.verified ? '' : ' (unverified position)'}`, zIndexOffset: -500, keyboard: true })
@@ -63,6 +65,7 @@ function drawStatic() {
     fitted = true;
     map.fitBounds(L.latLngBounds(s.ranks.map((r) => [r.lat, r.lng])).pad(0.08));
   }
+  tidyLabels();
 }
 
 const reverseOf = (r) => s.routes.find((x) => x.fromRankId === r.toRankId && x.toRankId === r.fromRankId);
@@ -81,13 +84,14 @@ function visible(t, pos) {
 
 function iconFor(p, selected) {
   let anchor;
-  const size = p.status === 'EN_ROUTE' ? 16 : 14;
+  // the dot is drawn 11 to 16 px, but the tap area around it is 24 px (WCAG's minimum)
+  const size = 24;
   if (p.slot != null) {
     // fan taxis waiting at a rank around its pin, so they don't stack
-    const ring = Math.floor(p.slot / 10);
-    const idx = p.slot % 10;
-    const radius = 22 + ring * 13;
-    const angle = (idx / 10) * Math.PI * 2 + ring * 0.3 + Math.PI / 2;
+    const ring = Math.floor(p.slot / 8);
+    const idx = p.slot % 8;
+    const radius = 26 + ring * 18;
+    const angle = (idx / 8) * Math.PI * 2 + ring * 0.4 + Math.PI / 2;
     const dx = Math.cos(angle) * radius;
     const dy = Math.sin(angle) * radius;
     anchor = [size / 2 - dx, size / 2 - dy];
@@ -199,7 +203,7 @@ function ranksHtml() {
     }).join('');
     const extra = [waiting && `${waiting} waiting, not queued`, incoming && `${incoming} on the way in`].filter(Boolean).join('. ');
     return `<li class="clickable${selectedRank === rank.id ? ' is-selected' : ''}" data-rank="${rank.id}" tabindex="0">
-      <div class="rank-card-head"><h3>${esc(rank.name)}</h3>${rank.verified ? '' : '<span class="guess">Unverified pin</span>'}</div>
+      <div class="rank-card-head"><h2>${esc(rank.name)}</h2>${rank.verified ? '' : '<span class="guess">Unverified pin</span>'}</div>
       ${lines || '<p class="muted small">No routes from this rank.</p>'}
       ${extra ? `<p class="rank-extra">${extra}.</p>` : ''}
       <p class="rank-extra"><a href="/marshal.html?rank=${rank.id}">Open marshal view</a> &nbsp; <a href="/board.html?rank=${rank.id}">Rank screen</a></p>

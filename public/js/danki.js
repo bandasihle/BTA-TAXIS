@@ -13,6 +13,7 @@
 import { lookup, buildDirectory, priceLabel, timeLabel, dayLabel, runningNow, saMinutes } from './fares.js';
 import { esc, local, registerServiceWorker, connect, api } from './common.js';
 import { mountMenu } from './menu.js';
+import { keepLabelsTidy } from './map-labels.js';
 
 let cached = local.get('directory');
 let tree;
@@ -53,6 +54,7 @@ const lines = L.layerGroup().addTo(map);
 const pins = L.layerGroup().addTo(map);
 const taxiLayer = L.layerGroup().addTo(map);
 const tripLayer = L.layerGroup().addTo(map);
+const tidyLabels = keepLabelsTidy(map, { pin: '.pin', label: 'b' });
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
 let current = {};
@@ -65,7 +67,7 @@ const headRoom = () => head.offsetHeight;
 function pin(at, { label, tag = '', kind = 'area', link = null, dim = false, bare = false, title = label }) {
   const icon = L.divIcon({
     className: '',
-    html: `<span class="pin pin-${kind}${dim ? ' is-dim' : ''}"><i></i>${bare ? '' : `<b>${tag}${esc(label)}</b>`}</span>`,
+    html: `<span class="pin pin-${kind}${dim ? ' is-dim' : ''}" data-p="${kind === 'here' ? 3 : kind === 'dest' ? 2 : dim ? 0 : 1}"><i></i>${bare ? '' : `<b>${tag}${esc(label)}</b>`}</span>`,
     iconSize: [0, 0],
   });
   const m = L.marker(at, { icon, title, keyboard: !!link, interactive: !!link, zIndexOffset: kind === 'here' ? 1000 : dim ? -100 : 0 });
@@ -111,6 +113,7 @@ function drawMap(province, region, rank) {
     for (const p of tree) pin(p.at, { label: p.name, tag: `<em>${p.code}</em>`, dim: !p.regions.length, link: href(p.id) });
     fit(tree.map((p) => p.at), 6);
   }
+  tidyLabels();
 }
 
 // ------------------------------------------------------------------ list
@@ -534,6 +537,6 @@ render();
 registerServiceWorker();
 
 // The menu shows the screens of whoever is signed in on this phone, or staff sign in.
-Promise.race([api('/api/me'), new Promise((_, no) => setTimeout(no, 3000))])
-  .then((me) => mountMenu(document.getElementById('menu-btn'), { user: me.mustChangePin ? null : me }))
+Promise.race([api('/api/session'), new Promise((_, no) => setTimeout(no, 3000))])
+  .then(({ user }) => mountMenu(document.getElementById('menu-btn'), { user: user && !user.mustChangePin ? user : null }))
   .catch(() => mountMenu(document.getElementById('menu-btn')));

@@ -289,7 +289,7 @@ a.role:hover h2 { text-decoration: underline; text-decoration-thickness: 2px; te
 .m-head { padding: 18px 0 12px; display: flex; flex-direction: column; gap: 6px; }
 .m-head-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .m-rank { font-family: var(--font-cond); font-weight: 700; font-size: 40px; line-height: 1; }
-.m-rank-select { max-width: 220px; min-height: 36px; font-size: 14px; padding: 4px 8px; }
+.m-rank-select { max-width: 220px; min-height: 36px; font-size: 16px; padding: 4px 8px; }
 
 .tabs { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 10px; scrollbar-width: thin; }
 .tab {
@@ -365,7 +365,7 @@ a.role:hover h2 { text-decoration: underline; text-decoration-thickness: 2px; te
 .leaflet-control-attribution { font-size: 11px; }
 .leaflet-bar a { color: var(--ink) !important; background: var(--surface) !important; border-color: var(--line) !important; }
 
-.taxi-icon { transition: transform 1s linear; }
+.taxi-icon { display: grid; place-items: center; transition: transform 1s linear; } /* a 24 px tap area around the dot */
 .leaflet-zoom-anim .taxi-icon, .no-anim .taxi-icon { transition: none; }
 .tx { display: block; border-radius: 50%; }
 .tx-EN_ROUTE { width: 16px; height: 16px; background: var(--go); border: 2.5px solid #fff; box-shadow: 0 0 0 1.5px var(--go); }
@@ -386,6 +386,11 @@ a.role:hover h2 { text-decoration: underline; text-decoration-thickness: 2px; te
   padding: 1px 6px; font-weight: 600; font-size: 13px; line-height: 1.5;
 }
 .rank-pin .label b { font-family: var(--font-cond); font-size: 15px; color: var(--accent-text); margin-left: 4px; }
+/* map-labels.js moves a crowded label to the left of its pin, or hides it until hover or focus */
+.rank-pin.is-left .label { left: auto; right: 14px; }
+.rank-pin.lbl-off .label { visibility: hidden; }
+.leaflet-marker-icon:hover .rank-pin.lbl-off .label, .leaflet-marker-icon:focus-visible .rank-pin.lbl-off .label { visibility: visible; }
+.leaflet-marker-icon:hover, .leaflet-marker-icon:focus-visible { z-index: 2000 !important; }
 .rank-pin.is-selected .dot { box-shadow: 0 0 0 4px rgba(143, 150, 255, 0.5); }
 
 .summary { display: flex; flex-wrap: wrap; gap: 6px; padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
@@ -397,7 +402,7 @@ a.role:hover h2 { text-decoration: underline; text-decoration-thickness: 2px; te
 .chip[aria-pressed='true'] { border-color: var(--ink); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--ink); }
 
 .filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
-.filters .input { min-height: 38px; font-size: 14px; }
+.filters .input { min-height: 38px; font-size: 16px; } /* under 16 px, iPhones zoom in on focus */
 
 .ptabs { display: flex; padding: 0 8px; border-bottom: 1px solid var(--line); }
 .ptab { flex: 1; padding: 12px 6px; border: 0; background: none; cursor: pointer; font-weight: 600; color: var(--ink-3); border-bottom: 3px solid transparent; }
@@ -411,7 +416,7 @@ a.role:hover h2 { text-decoration: underline; text-decoration-thickness: 2px; te
 .plist .empty { color: var(--ink-3); }
 
 .rank-card-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
-.rank-card-head h3 { font-size: 18px; font-weight: 700; }
+.rank-card-head h2 { font-size: 18px; font-weight: 700; }
 .qline { display: grid; grid-template-columns: minmax(90px, 1fr) auto auto; gap: 4px 10px; align-items: center; font-size: 14px; padding: 4px 0; }
 .qline .dest { font-weight: 600; }
 .qline .meta { color: var(--ink-3); font-size: 13px; text-align: right; }
@@ -480,7 +485,7 @@ a.role:hover h2 { text-decoration: underline; text-decoration-thickness: 2px; te
 .board-row.full .state { color: var(--accent); }
 .board-empty { font-size: 24px; color: #b4b9ff; padding: 40px 0; }
 .board-foot { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: center; padding-top: 18px; color: #b4b9ff; font-size: 15px; }
-.board-foot select { background: #0d0f33; color: #ffffff; border-color: #2b2f6e; min-height: 36px; font-size: 14px; width: auto; }
+.board-foot select { background: #0d0f33; color: #ffffff; border-color: #2b2f6e; min-height: 36px; font-size: 16px; width: auto; }
 .arrivals { margin-top: 18px; font-size: 20px; color: #b4b9ff; }
 .arrivals b { color: #fff; }
 @media (max-width: 700px) {

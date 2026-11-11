@@ -263,6 +263,14 @@ async function api(req, res, url) {
     closeDeadStreams();
     return json(res, 200, { message: 'Signed out' }, { 'Set-Cookie': sessionCookie(req, '', 0) });
   }
+  // The public screens ask whether someone is signed in on this device. Not being signed in is
+  // the normal answer there, so it is a 200 with user: null rather than a 401 error.
+  if (m === 'GET' && p === '/api/session') {
+    const user = signedIn(req);
+    if (!user) return json(res, 200, { user: null });
+    const { sessionId, ...me } = user;
+    return json(res, 200, { user: me });
+  }
   if (m === 'GET' && p === '/api/me') {
     const user = signedIn(req);
     if (!user) throw new HttpError(401, 'Please sign in.');

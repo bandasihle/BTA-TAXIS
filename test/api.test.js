@@ -119,6 +119,21 @@ test('nothing that changes data works without signing in', async () => {
   for (const p of ['/api/demo', '/api/reset']) assert.equal((await call('POST', p, { cookie: adminCookie, body: {} })).status, 404, p);
 });
 
+test('the public sign-in check answers quietly and never leaks the session id', async () => {
+  const anon = await call('GET', '/api/session');
+  assert.equal(anon.status, 200);
+  assert.deepEqual(anon.data, { user: null });
+  const forged = await call('GET', '/api/session', { cookie: 'bta_session=' + 'A'.repeat(43) });
+  assert.deepEqual(forged.data, { user: null });
+  const mine = await call('GET', '/api/session', { cookie: adminCookie });
+  assert.equal(mine.status, 200);
+  assert.equal(mine.data.user.role, 'admin');
+  assert.equal(mine.data.user.sessionId, undefined);
+  assert.deepEqual(mine.data.user, (await call('GET', '/api/me', { cookie: adminCookie })).data);
+  // the staff screens still rely on a 401 from /api/me
+  assert.equal((await call('GET', '/api/me')).status, 401);
+});
+
 test('a forged or expired session is refused', async () => {
   assert.equal((await call('GET', '/api/users', { cookie: 'bta_session=' + 'A'.repeat(43) })).status, 401);
   assert.equal((await call('GET', '/api/users', { token: 'not-a-real-token-at-all-1234567890' })).status, 401);

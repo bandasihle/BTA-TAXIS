@@ -51,7 +51,7 @@ const timeout = new Promise((_, reject) => setTimeout(() => reject(Object.assign
 let me = null;
 let offline = false;
 try {
-  me = await Promise.race([api('/api/me'), timeout]);
+  me = (await Promise.race([api('/api/session'), timeout])).user; // null when nobody is signed in
 } catch (err) {
   offline = !err.status; // no answer at all, as opposed to "not signed in"
 }

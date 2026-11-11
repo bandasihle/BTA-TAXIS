@@ -3,9 +3,9 @@ import { mountMenu } from './menu.js';
 
 // The same header as every other screen: staff get their screens and the Menu; anyone else
 // (a passenger, or the wall screen before anyone signs in) gets the Danki Driver bar and Menu.
-api('/api/me')
-  .then((me) => {
-    if (me.mustChangePin || !['admin', 'marshal'].includes(me.role)) throw new Error('not staff');
+api('/api/session')
+  .then(({ user: me }) => {
+    if (!me || me.mustChangePin || !['admin', 'marshal'].includes(me.role)) throw new Error('not staff');
     renderTopbar('/board.html', me);
     if (me.role === 'marshal' && !new URLSearchParams(location.search).get('rank')) {
       rankId = me.rankId; // a marshal's rank screen opens on their own rank

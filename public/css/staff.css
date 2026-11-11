@@ -12,7 +12,7 @@
   --line-strong: rgba(12, 26, 75, 0.32);
   --ink: #0c1a4b;
   --ink-2: #4b5565;
-  --ink-3: #6b7280;
+  --ink-3: #626977;
   --accent: #0144b7;
   --accent-deep: #022d84;
   --on-accent: #ffffff;
@@ -157,3 +157,26 @@ h1, .users h1, .m-rank, .home h1, .signin-card h1 { font-family: var(--ui); font
 .board-page.is-wall .board { min-height: 100dvh; }
 .board-full { background: transparent; color: #fff; border-color: #24346f; min-height: 44px; }
 .board-full:hover { background: #10225f; }
+
+/* ------------------------------------------------------------------ touch: every control at least 44 px
+   on phones and touch screens. Desktop keeps the compact sizes. */
+
+@media (pointer: coarse), (max-width: 760px) {
+  .btn.sm, .board-full, .board-foot select, .m-rank-select { min-height: 44px; }
+  .icon-btn { width: 44px; height: 44px; }
+  .brand, .brand-logo { min-height: 44px; display: inline-flex; align-items: center; }
+  .brand-logo { min-width: 44px; justify-content: center; }
+  .chip { min-height: 44px; }
+  .filters .input { min-height: 44px; }
+  .check { min-height: 44px; }
+  .leaflet-touch .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; font-size: 22px; }
+}
+/* on a phone the wordmark gives way to the controls, so the bar stays one row */
+@media (max-width: 760px) {
+  .topbar .brand { flex: 1 1 0; min-width: 0; }
+  .brand-name { min-width: 0; overflow: hidden; }
+  .brand-name small { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-width: 400px) {
+  .brand-name small { display: none; }
+}
