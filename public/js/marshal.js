@@ -51,7 +51,7 @@ function render() {
     return;
   }
   local.set('marshal-rank', rankId);
-  document.title = `${rank.name} marshal | Danki Driver`;
+  document.title = `${rank.name} marshal | Dankie Driver`;
 
   const routes = s.routes.filter((r) => r.fromRankId === rankId).sort((a, b) => s.rankName(a.toRankId).localeCompare(s.rankName(b.toRankId)));
   if (routeTab == null) routeTab = local.get(`tab:${rankId}`);

@@ -1,4 +1,4 @@
-/* Every staff screen in the Danki Driver look: the office (dashboard, ranks and routes, fares,
+/* Every staff screen in the Dankie Driver look: the office (dashboard, ranks and routes, fares,
    staff, home), the marshal screens and the rank board. Loads after app.css and slip-base.css.
    app.css still lays the screens out; this file gives its tokens the logo's colours, swaps
    its Barlow fonts for the system face and the bundled mono, and draws the blue header with

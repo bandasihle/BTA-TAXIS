@@ -21,7 +21,7 @@ export const RANKS = [
   })),
 ];
 
-// One two-way route for every destination on a Danki rank's fare list.
+// One two-way route for every destination on a Dankie rank's fare list.
 export const ROUTE_PAIRS = (() => {
   const seen = new Set();
   const pairs = [];

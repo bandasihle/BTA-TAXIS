@@ -1,6 +1,6 @@
 {
-  "name": "Danki Driver",
-  "short_name": "Danki Driver",
+  "name": "Dankie Driver",
+  "short_name": "Dankie Driver",
   "description": "Taxi ranks, destinations, times and prices from the Benoni Taxi Association.",
   "start_url": "/",
   "display": "standalone",

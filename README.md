@@ -6,7 +6,7 @@ It runs on Render's free plan: after about 15 minutes without visitors it sleeps
 
 | Screen | Link |
 |---|---|
-| Danki Driver, the passenger app | https://bta-taxis.onrender.com |
+| Dankie Driver, the passenger app | https://bta-taxis.onrender.com |
 | Staff home | https://bta-taxis.onrender.com/staff |
 | Office dashboard (live map) | https://bta-taxis.onrender.com/dashboard |
 | Marshal screen (try it on a phone) | https://bta-taxis.onrender.com/marshal |
@@ -15,14 +15,14 @@ It runs on Render's free plan: after about 15 minutes without visitors it sleeps
 
 Two parts for the Benoni Taxi Association:
 
-- **Danki Driver** (passenger app, `/`). Pick a province, then a region, then a rank, on the map or in the list, and see each destination with the hours taxis run and the price. Built from the association's brief in `docs/danki-driver-app.pdf`. On a rank's screen it also shows, live: whether each destination is running now ("Last taxi in 40 min", "Closed, opens 04:00", in South African time), the taxi loading for it (seats filled, no queue numbers), taxis driving to and from the rank on the map (once drivers' phones send GPS), and a trip preview with a rough travel time. Loading taxis come from what marshals record.
+- **Dankie Driver** (passenger app, `/`). Pick a province, then a region, then a rank, on the map or in the list, and see each destination with the hours taxis run and the price. Built from the association's brief in `docs/danki-driver-app.pdf`. On a rank's screen it also shows, live: whether each destination is running now ("Last taxi in 40 min", "Closed, opens 04:00", in South African time), the taxi loading for it (seats filled, no queue numbers), taxis driving to and from the rank on the map (once drivers' phones send GPS), and a trip preview with a rough travel time. Loading taxis come from what marshals record.
 - **Rank tracker** (staff, `/staff`). Tracks which taxi is where: rank queues, loading, departures and taxis on the road between Etwatwa, Daveyton, Benoni and nearby ranks.
 
-**Danki Driver data.** All nine provinces are listed. Only Gauteng > Benoni Ekurhuleni has ranks so far. Ranks, destinations, times and prices live in the database and admins change them on the **Fares** page (`/fares`); passengers' phones update straight away and keep the last copy for when there is no signal. A route without a fare is not shown to passengers. A rank is listed for passengers when it has a region (set in Ranks and routes); without one it is a destination only. Every fare change is logged with who made it and the old and new values. The first run loads the association's list from `public/js/fares.js`: Etwatwa Las Vegas with its fares, and the other ranks (Barcelona, Cloverdene, Lakeside, Dunswart, Northmead Square, East Rand Mall, SuperSpar) with none yet.
+**Dankie Driver data.** All nine provinces are listed. Only Gauteng > Benoni Ekurhuleni has ranks so far. Ranks, destinations, times and prices live in the database and admins change them on the **Fares** page (`/fares`); passengers' phones update straight away and keep the last copy for when there is no signal. A route without a fare is not shown to passengers. A rank is listed for passengers when it has a region (set in Ranks and routes); without one it is a destination only. Every fare change is logged with who made it and the old and new values. The first run loads the association's list from `public/js/fares.js`: Etwatwa Las Vegas with its fares, and the other ranks (Barcelona, Cloverdene, Lakeside, Dunswart, Northmead Square, East Rand Mall, SuperSpar) with none yet.
 
 **Places.** The passenger app, the dashboard and the rank editor all use the same places from `public/js/fares.js`, so they are already on the map. Etwatwa Las Vegas is at the spot the association gave. The others were found with OpenStreetMap place search and sit on the right area, not the exact rank ("Danstreet" in the brief is Dunswart, "Jimeston" is Germiston). Barcelona is only placed inside Etwatwa.
 
-**No demo data.** The tracker starts with the ranks and the routes on the Danki Driver fare lists, and no taxis, drivers or marshals. Taxis are registered by marshals.
+**No demo data.** The tracker starts with the ranks and the routes on the Dankie Driver fare lists, and no taxis, drivers or marshals. Taxis are registered by marshals.
 
 ## Run it
 
@@ -40,7 +40,7 @@ npm start          # http://localhost:3000
 | `npm run create-admin -- --name "Full Name" --phone 0821234567` | Creates an admin and prints a temporary PIN once. They choose their own PIN when they first sign in. |
 | `npm run seed` | Loads the association's ranks and routes into an empty database. It refuses to run on a database that has data, so it can never wipe real records. |
 | `npm run roads` | Fetches the road for any fare-list route not yet saved in `server/roads.json` (`-- --all` fetches them all again). |
-| `npm test` | State machine, end-to-end store and Danki Driver data tests. |
+| `npm test` | State machine, end-to-end store and Dankie Driver data tests. |
 
 ## Android app
 
@@ -92,7 +92,7 @@ Passengers need no account. Staff sign in at `/login` with their cellphone numbe
 
 | Path | For |
 |---|---|
-| `/` | Danki Driver: a map and list of province, region, rank, then destination, time and price, with the routes drawn on the map. Links like `/#/gauteng/benoni-ekurhuleni/etwatwa-las-vegas` open a rank directly. |
+| `/` | Dankie Driver: a map and list of province, region, rank, then destination, time and price, with the routes drawn on the map. Links like `/#/gauteng/benoni-ekurhuleni/etwatwa-las-vegas` open a rank directly. |
 | `/login` | The welcome screen the app opens on: a loading screen while the server wakes, then "Continue as a passenger" (no account) or staff sign in, and choosing your own PIN. Every screen has a Menu in the header listing what the signed-in role can open. |
 | `/staff` | Staff home. |
 | `/driver` | Drivers: read and accept the location notice, then start and stop sharing their taxi's position. |
@@ -123,7 +123,7 @@ Admins link a driver to a taxi on `/users`.
 
 ### Look
 
-Danki Driver (`/`), the welcome screen and the driver screen share `public/css/slip-base.css`. Colours come from the Dankie Driver badge (`docs/dankie-driver-logo.jpeg`): royal blue, navy and the red and white of the taxi livery. Answers are printed slips with figures in Spline Sans Mono under a frosted blue header with a red and white livery stripe that takes the page title once the big title scrolls under it. Tapping a destination prints its slip: fare, hours, what is running now and the taxi loading at the rank, with the trip preview. The font is bundled in `public/fonts/` (SIL Open Font License, see the licence file there), so these pages load no third-party fonts. The staff screens keep `app.css`.
+Dankie Driver (`/`), the welcome screen and the driver screen share `public/css/slip-base.css`. Colours come from the Dankie Driver badge (`docs/dankie-driver-logo.jpeg`): royal blue, navy and the red and white of the taxi livery. Answers are printed slips with figures in Spline Sans Mono under a frosted blue header with a red and white livery stripe that takes the page title once the big title scrolls under it. Tapping a destination prints its slip: fare, hours, what is running now and the taxi loading at the rank, with the trip preview. The font is bundled in `public/fonts/` (SIL Open Font License, see the licence file there), so these pages load no third-party fonts. The staff screens keep `app.css`.
 
 ## Layout
 
@@ -141,9 +141,9 @@ server/
   auth.js     staff accounts, PINs, sessions, stream tickets
   create-admin.js  `npm run create-admin`
   db.js       SQLite schema
-public/       Danki Driver and the five staff screens (vanilla JS modules, Leaflet map), PWA manifest + service worker
+public/       Dankie Driver and the five staff screens (vanilla JS modules, Leaflet map), PWA manifest + service worker
   js/fares.js provinces and regions, the association's starting ranks and fares, buildDirectory() for the passenger app
-docs/         the association's Danki Driver brief and the original BTA logo
+docs/         the association's Dankie Driver brief and the original BTA logo
 test/         node:test suites
 ```
 
@@ -159,7 +159,7 @@ Public: `GET /api/snapshot`, `GET /api/stream` (SSE; `?pos=1` adds positions eve
 
 - Locking an account after wrong PINs means someone who knows a marshal's number can lock them out for 15 minutes at a time. An admin can see the lock on `/users`.
 - On the website, sharing stops when the driver leaves the page or the phone locks; drivers should use the Android app.
-- Some phone makers (Xiaomi, Huawei, Oppo, Samsung on battery saver) kill background apps despite the notification. Drivers may need to set Danki Driver to "No restrictions" under battery settings.
+- Some phone makers (Xiaomi, Huawei, Oppo, Samsung on battery saver) kill background apps despite the notification. Drivers may need to set Dankie Driver to "No restrictions" under battery settings.
 - The fake-location check trusts the app; a modified app could hide it. The speed and time checks still apply.
 - Rank pins other than Etwatwa Las Vegas sit on the right area, not the exact rank.
 - Map tiles come from openstreetmap.org and need a connection.

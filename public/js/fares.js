@@ -1,4 +1,4 @@
-// Danki Driver directory: province > region > rank > destination, time and price.
+// Dankie Driver directory: province > region > rank > destination, time and price.
 //
 // The provinces and regions below are fixed. The ranks and fares in them are the starting
 // data from the association: server/seed.js loads them into an empty database, and from then

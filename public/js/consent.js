@@ -5,7 +5,7 @@
 export const CONSENT_VERSION = '2026-11-v3';
 
 export const CONSENT_NOTICE = [
-  ['Who is asking', 'The Benoni Taxi Association runs Danki Driver and is responsible for this information.'],
+  ['Who is asking', 'The Benoni Taxi Association runs Dankie Driver and is responsible for this information.'],
   ['What is collected', 'Your phone\'s GPS position and how accurate it is, from when you press Start until you press Stop. In the app this carries on while your phone is locked or you use other apps, and a notification stays on your phone the whole time. Nothing else from your phone.'],
   ['Why', 'So passengers and the association can see where taxis on a trip are, how far away they are, and when a taxi has arrived at a rank.'],
   ['Who sees it', 'Passengers see your taxi\'s number plate (never your name) and its live position on the map, to within about 10 metres, only while it is driving a route. Association staff see the same. It is not sold or given to anyone else.'],

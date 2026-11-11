@@ -42,7 +42,7 @@ export function mountMenu(button, { user = null, current = location.pathname, on
   const here = (href) => href.split('?')[0] === current;
   dlg.innerHTML = `
     <div class="mn-top">
-      <span class="mn-word">Danki <b>Driver</b></span>
+      <span class="mn-word">Dankie <b>Driver</b></span>
       <button class="mn-close" type="button" aria-label="Close menu">${ICON.close}</button>
     </div>
     ${user ? `<p class="mn-who"><b>${esc(user.name)}</b><span>${esc(ROLE[user.role] ?? '')}</span></p>` : ''}

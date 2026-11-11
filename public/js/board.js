@@ -2,7 +2,7 @@ import { $, esc, local, connect, plate, clock, eta, api, renderTopbar } from './
 import { mountMenu } from './menu.js';
 
 // The same header as every other screen: staff get their screens and the Menu; anyone else
-// (a passenger, or the wall screen before anyone signs in) gets the Danki Driver bar and Menu.
+// (a passenger, or the wall screen before anyone signs in) gets the Dankie Driver bar and Menu.
 api('/api/session')
   .then(({ user: me }) => {
     if (!me || me.mustChangePin || !['admin', 'marshal'].includes(me.role)) throw new Error('not staff');
@@ -16,7 +16,7 @@ api('/api/session')
     const bar = $('#topbar');
     bar.className = 'sh';
     bar.innerHTML = `<div class="sh-in">
-        <a class="sh-word" href="/" aria-label="Danki Driver, find a taxi">Danki <b>Driver</b></a>
+        <a class="sh-word" href="/" aria-label="Dankie Driver, find a taxi">Dankie <b>Driver</b></a>
         <span class="sh-end"><button class="sh-btn sh-menu" id="menu-btn" type="button"></button>
           <img src="/img/dankie-logo-128.jpg" width="36" height="36" alt="Dankie Driver, Benoni Taxi Association"></span>
       </div>`;
@@ -49,7 +49,7 @@ function render() {
   const rank = s.rankById.get(rankId);
   if (!rank) return;
   local.set('board-rank', rankId);
-  document.title = `${rank.name} rank screen | Danki Driver`;
+  document.title = `${rank.name} rank screen | Dankie Driver`;
   $('#b-rank').textContent = rank.name;
   $('#b-switch').innerHTML = s.ranks.map((r) => `<option value="${r.id}"${r.id === rankId ? ' selected' : ''}>${esc(r.name)}</option>`).join('');
 

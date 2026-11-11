@@ -168,7 +168,7 @@ async function onFix(fix) {
 function onError(err) {
   if (err.denied) {
     stop({
-      text: BACKGROUND ? 'Location is not allowed for Danki Driver. Allow it in your phone settings, then press Start again.' : 'Location is blocked for this site. Allow it in your browser settings, then press Start again.',
+      text: BACKGROUND ? 'Location is not allowed for Dankie Driver. Allow it in your phone settings, then press Start again.' : 'Location is blocked for this site. Allow it in your browser settings, then press Start again.',
       denied: true,
     });
   } else if (err.off) {

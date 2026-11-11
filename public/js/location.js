@@ -20,7 +20,7 @@ export function watchLocation(onFix, onError) {
     let fellBack = null;
     id = cap.nativeCallback(PLUGIN, 'addWatcher', {
       backgroundTitle: 'Sharing your taxi\'s position',
-      backgroundMessage: 'Danki Driver is sharing your location. Open the app and press Stop to end it.',
+      backgroundMessage: 'Dankie Driver is sharing your location. Open the app and press Stop to end it.',
       requestPermissions: true,
       stale: false,
       distanceFilter: 0,

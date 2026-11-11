@@ -81,14 +81,14 @@ export function renderTopbar(active, user) {
   el.className = 'topbar';
   const links = NAV.filter(([, , roles]) => roles.includes(user?.role));
   el.innerHTML = `
-    <a class="brand" href="${homeFor(user)}" aria-label="Danki Driver, ${esc(ROLE_NAME[user?.role] ?? 'staff')} home">
-      <span class="brand-name">Danki <b>Driver</b><small>${esc(ROLE_NAME[user?.role] ?? '')}</small></span></a>
+    <a class="brand" href="${homeFor(user)}" aria-label="Dankie Driver, ${esc(ROLE_NAME[user?.role] ?? 'staff')} home">
+      <span class="brand-name">Dankie <b>Driver</b><small>${esc(ROLE_NAME[user?.role] ?? '')}</small></span></a>
     <nav class="nav" aria-label="Screens">${links.map(([href, label]) => `<a href="${navHref(href, user)}"${href === active ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
     <div class="topbar-tools">
       ${user ? `<span class="who small">${esc(user.name)}</span><button class="btn sm quiet" id="sign-out" type="button">Sign out</button>` : ''}
       <button class="btn sm quiet" id="menu-btn" type="button" aria-haspopup="dialog">Menu</button>
       <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch between light and dark">${THEME_ICON}</button>
-      <a class="brand-logo" href="/" title="Danki Driver, the passenger app"><img src="/img/dankie-logo-128.jpg" width="40" height="40" alt="Dankie Driver, Benoni Taxi Association" style="border-radius:50%"></a>
+      <a class="brand-logo" href="/" title="Dankie Driver, the passenger app"><img src="/img/dankie-logo-128.jpg" width="40" height="40" alt="Dankie Driver, Benoni Taxi Association" style="border-radius:50%"></a>
     </div>`;
   // on a phone the screens scroll sideways: keep the current one in view, and drop the fade at the end
   const nav = $('.nav', el);
@@ -104,7 +104,7 @@ export function renderTopbar(active, user) {
 // ------------------------------------------------------------------ the welcome screen
 
 /**
- * Danki Driver opens on the welcome screen once per visit (see js/gate.js). Choosing to
+ * Dankie Driver opens on the welcome screen once per visit (see js/gate.js). Choosing to
  * continue as a passenger, or signing in, marks this visit so the gate lets you through.
  */
 export function enter(kind) {

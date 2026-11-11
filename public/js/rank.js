@@ -221,7 +221,7 @@ function findMe() {
         if (err.code !== err.PERMISSION_DENIED) return; // a slow fix: keep waiting until the timer
         navigator.geolocation.clearWatch(id);
         clearTimeout(timer);
-        reject(new Error('Location is not allowed for Danki Driver. Allow it in your phone\'s settings, then try again.'));
+        reject(new Error('Location is not allowed for Dankie Driver. Allow it in your phone\'s settings, then try again.'));
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 },
     );

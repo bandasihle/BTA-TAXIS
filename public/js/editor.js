@@ -113,7 +113,7 @@ function renderForm() {
       <h2>${isNew ? 'New rank' : `Edit ${esc(rank.name)}`}</h2>
       <label class="field">Name <input class="input" id="f-name" required maxlength="60" value="${esc(rank.name)}" placeholder="For example Etwatwa Ext 8"></label>
       <label class="field">Area <input class="input" id="f-area" value="${esc(rank.area ?? '')}" placeholder="For example Etwatwa"></label>
-      <label class="field">Region in Danki Driver
+      <label class="field">Region in Dankie Driver
         <select class="input" id="f-region">
           <option value="">None: a destination only, passengers don't board here</option>
           ${PROVINCES.filter((p) => p.regions.length).map((p) => `<optgroup label="${esc(p.name)}">${p.regions.map((g) => `<option value="${g.id}"${g.id === rank.regionId ? ' selected' : ''}>${esc(g.name)}</option>`).join('')}</optgroup>`).join('')}

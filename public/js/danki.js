@@ -1,4 +1,4 @@
-// Danki Driver, the passenger app: province > region > rank > destination, time, price.
+// Dankie Driver, the passenger app: province > region > rank > destination, time, price.
 // Every step can be picked on the map or in the list beside it. The path lives in the URL
 // hash (#/gauteng/benoni-ekurhuleni/barcelona), so the phone's back button and shared
 // links work.
@@ -41,7 +41,7 @@ const shortName = (rank) => rank.name.replace(/ Taxi Rank$/, '');
 
 // ------------------------------------------------------------------ map
 
-// Danki Driver covers Gauteng for now: the map stays on the province and the list starts there.
+// Dankie Driver covers Gauteng for now: the map stays on the province and the list starts there.
 const HOME = 'gauteng';
 const GAUTENG = L.latLngBounds([-27.05, 26.95], [-25.0, 29.25]);
 const map = L.map('map', { zoomControl: true, zoomSnap: 0.25, attributionControl: true, maxBounds: GAUTENG, maxBoundsViscosity: 0.9, minZoom: 8 });
@@ -240,7 +240,7 @@ function render() {
         : provinces();
   trail.innerHTML = crumbs(province, region, rank);
   trail.hidden = !trail.innerHTML;
-  document.title = rank ? `${rank.name} | Danki Driver` : region ? `${region.name} | Danki Driver` : province ? `${province.name} | Danki Driver` : 'Danki Driver';
+  document.title = rank ? `${rank.name} | Dankie Driver` : region ? `${region.name} | Dankie Driver` : province ? `${province.name} | Dankie Driver` : 'Dankie Driver';
   current = { province, region, rank };
   drawMap(province, region, rank);
   updateLive();
