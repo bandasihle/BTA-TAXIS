@@ -51,7 +51,7 @@ export function mountMenu(button, { user = null, current = location.pathname, on
         <span>${esc(label)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</a></li>`).join('')}
     </ul></nav>
     <div class="mn-end">
-      ${user ? '<button class="mn-out" type="button">Sign out</button>' : '<a class="mn-in" href="/login.html">Staff sign in</a><p>For drivers, rank marshals and the association office.</p>'}
+      ${user ? '<button class="mn-out" type="button">Sign out</button>' : '<a class="mn-in" href="/login.html#staff">Staff sign in</a><p>For drivers, rank marshals and the association office.</p>'}
     </div>
     <p class="mn-foot">Benoni Taxi Association. The wheels of the nation.</p>`;
   document.body.append(dlg);

@@ -67,10 +67,41 @@ test('5 wrong PINs lock the account for 15 minutes, even with the right PIN', as
   const { auth, advance } = setup();
   await admin(auth);
   for (let i = 0; i < 5; i++) await assert.rejects(auth.login({ phone: '0821111111', pin: '000001' }, { ip: `10.0.0.${i}` }), { status: 401 });
-  await assert.rejects(auth.login({ phone: '0821111111', pin: '482915' }, { ip: '10.0.1.1' }), { status: 429 });
+  await assert.rejects(auth.login({ phone: '0821111111', pin: '482915' }, { ip: '10.0.1.1' }), { status: 401 });
   advance(15 * 60_000 + 1);
   const ok = await auth.login({ phone: '0821111111', pin: '482915' }, { ip: '10.0.1.1' });
   assert.ok(ok.token);
+});
+
+test('a locked account answers exactly like an unknown number, so staff numbers cannot be found out', async () => {
+  const { auth } = setup();
+  await admin(auth);
+  for (let i = 0; i < 5; i++) await assert.rejects(auth.login({ phone: '0821111111', pin: '000001' }, { ip: `10.0.2.${i}` }));
+  const locked = await auth.login({ phone: '0821111111', pin: '482915' }, { ip: '10.0.3.1' }).catch((e) => e);
+  const unknown = await auth.login({ phone: '0829999999', pin: '482915' }, { ip: '10.0.3.2' }).catch((e) => e);
+  assert.equal(locked.status, unknown.status);
+  assert.equal(locked.message, unknown.message);
+});
+
+test('locks in a row get longer: 15 minutes, 1 hour, then 4 hours; a right PIN starts again', async () => {
+  const { auth, advance } = setup();
+  await admin(auth);
+  let ip = 0;
+  const lockOut = async () => {
+    for (let i = 0; i < 5; i++) await assert.rejects(auth.login({ phone: '0821111111', pin: '000001' }, { ip: `10.1.${ip}.${i}` }));
+    ip++;
+  };
+  const right = () => auth.login({ phone: '0821111111', pin: '482915' }, { ip: `10.2.${ip++}.1` });
+  for (const mins of [15, 60, 240, 240]) {
+    await lockOut();
+    advance(mins * 60_000 - 1_000);
+    await assert.rejects(right(), { status: 401 }, `still locked just before ${mins} min`);
+    advance(2_000); // and open just after
+  }
+  assert.ok((await right()).token);
+  await lockOut();
+  advance(15 * 60_000 + 1);
+  assert.ok((await right()).token, 'after a right PIN the next lock is 15 minutes again');
 });
 
 test('one device gets 20 sign-in tries per 15 minutes, across all accounts', async () => {
@@ -179,7 +210,7 @@ test('a signed-in session cannot be used to guess the PIN: wrong current PINs lo
   await assert.rejects(auth.changePin(a, '000001', '593026'), { status: 429 });
   assert.equal(auth.authenticate(other.token), null, 'every session is gone, this one too');
   assert.equal(auth.sessionAlive(a.sessionId), false);
-  await assert.rejects(auth.login({ phone: '0821111111', pin: '482915' }), { status: 429 }, 'locked even with the right PIN');
+  await assert.rejects(auth.login({ phone: '0821111111', pin: '482915' }), { status: 401 }, 'locked even with the right PIN');
 });
 
 test('the right current PIN clears earlier wrong guesses', async () => {

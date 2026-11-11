@@ -173,6 +173,7 @@ function migrate(db) {
   if (!has('users', 'taxi_id')) db.exec('ALTER TABLE users ADD COLUMN taxi_id INTEGER REFERENCES taxis(id) ON DELETE SET NULL');
   if (!has('users', 'location_consent_at')) db.exec('ALTER TABLE users ADD COLUMN location_consent_at INTEGER');
   if (!has('users', 'location_consent_version')) db.exec('ALTER TABLE users ADD COLUMN location_consent_version TEXT');
+  if (!has('users', 'lock_count')) db.exec('ALTER TABLE users ADD COLUMN lock_count INTEGER NOT NULL DEFAULT 0'); // locks in a row
 }
 
 /** "Etwatwa Las Vegas" -> "etwatwa-las-vegas", for links. */

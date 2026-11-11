@@ -21,8 +21,20 @@ function nextPage(user) {
   return safe ? next : homeFor(user);
 }
 
+// The staff form stays folded away behind a small link, so the welcome screen offers nothing to
+// strangers but the passenger app. It opens by itself in the staff app, on a phone where staff
+// have signed in before, from the Menu's "Staff sign in" (#staff), and when a session has ended.
+// This only keeps it out of sight: the real protection is on the server (one answer for every
+// failed sign-in, per-device limits, and locks that grow longer).
+const STAFF_DEVICE = 'dk:staff-device';
+const remembered = () => { try { return localStorage.getItem(STAFF_DEVICE) === '1'; } catch { return false; } };
+let staffOpen = IS_APP || remembered() || location.hash === '#staff' || new URLSearchParams(location.search).has('next');
+
 function show(form) {
-  for (const el of [signin, newpin]) el.hidden = el !== form;
+  newpin.hidden = form !== newpin;
+  signin.hidden = form !== signin || !staffOpen;
+  $('#staff-open').hidden = form !== signin || staffOpen;
+  $('#staff-open').setAttribute('aria-expanded', String(!signin.hidden));
   $('#passenger').closest('.gate-card').hidden = form === newpin;
   $('#gate-title').textContent = form === newpin ? 'Choose your PIN' : 'Find your taxi';
 }
@@ -66,6 +78,7 @@ if (me && !me.mustChangePin) {
     // reloaded after signing in with a temporary PIN: we no longer know it, so sign in again
     await api('/api/logout', { method: 'POST', body: {} }).catch(() => {});
     session.clear();
+    staffOpen = true;
     fail($('#signin-error'), 'Sign in again with your temporary PIN, then choose your own.');
   }
   show(signin);
@@ -73,6 +86,12 @@ if (me && !me.mustChangePin) {
 }
 
 // ------------------------------------------------------------------ choices
+
+$('#staff-open').addEventListener('click', () => {
+  staffOpen = true;
+  show(signin);
+  $('#phone').focus();
+});
 
 $('#passenger').addEventListener('click', () => {
   enter('passenger');
@@ -93,6 +112,7 @@ signin.addEventListener('submit', async (e) => {
   try {
     const r = await api('/api/login', { method: 'POST', body: { phone, pin, client: IS_APP ? 'app' : 'web' } });
     if (r.token) session.set(r.token);
+    try { localStorage.setItem(STAFF_DEVICE, '1'); } catch { /* private mode: the link stays */ }
     $('#pin').value = '';
     $('#offline').hidden = true;
     if (r.user.mustChangePin) {

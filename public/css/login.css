@@ -58,6 +58,13 @@ body.gate { background: linear-gradient(var(--blue) 0 200px, var(--paper) 200px)
 .gate-go:disabled { opacity: 0.5; cursor: progress; }
 /* red is the passenger's action; staff actions are navy, so the screen has one loud button */
 #signin .gate-go, #newpin .gate-go { background: var(--ink); }
+/* staff sign-in folded away: a quiet text link under the passenger card */
+.gate-staff {
+  align-self: center; min-height: 44px; padding: 0 12px; border: 0; background: none; cursor: pointer;
+  font: 500 15px var(--ui); color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px;
+}
+.gate-staff:hover { color: var(--ink); }
+.gate-staff[hidden] { display: none; }
 #signin .gate-go:hover, #newpin .gate-go:hover { background: #1a2a63; }
 
 @media (prefers-reduced-motion: reduce) {

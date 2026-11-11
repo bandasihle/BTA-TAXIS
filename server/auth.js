@@ -18,11 +18,14 @@ const scrypt = promisify(crypto.scrypt);
 export const ROLES = Object.freeze(['admin', 'marshal', 'driver']);
 export const SESSION_MS = 7 * 24 * 60 * 60_000;
 const MAX_FAILED = 5;
-const LOCK_MS = 15 * 60_000;
+/** Each lock in a row lasts longer: 15 minutes, 1 hour, then 4 hours, until a right PIN resets it. */
+const LOCK_STEPS_MS = [15, 60, 240].map((m) => m * 60_000);
 const IP_WINDOW_MS = 15 * 60_000;
 const IP_MAX_TRIES = 20;
 const TICKET_MS = 30_000;
-const WRONG = 'That phone number and PIN do not match.';
+// One answer for every failed sign-in: wrong PIN, unknown number, switched-off or locked account.
+// Anything more specific would let someone test which phone numbers have staff accounts.
+const WRONG = 'That phone number and PIN do not match. After 5 wrong tries, sign-in pauses for at least 15 minutes.';
 
 /** South African mobile numbers in any common format become +27XXXXXXXXX; anything else is null. */
 export function normalizePhone(input) {
@@ -181,24 +184,33 @@ export function createAuth(db, opts = {}) {
   async function resetPin(id) {
     const u = getUser(id);
     const pin = randomPin();
-    run('UPDATE users SET pin_hash = ?, must_change_pin = 1, failed_logins = 0, locked_until = NULL WHERE id = ?', await hashPin(pin), u.id);
+    run('UPDATE users SET pin_hash = ?, must_change_pin = 1, failed_logins = 0, locked_until = NULL, lock_count = 0 WHERE id = ?', await hashPin(pin), u.id);
     endSessions(u.id);
     return { pin, message: `New PIN for ${u.name}` };
   }
 
+  /** Counts a wrong PIN; the 5th in a row locks the account, each lock longer than the last. Returns true when it locked. */
+  function wrongPin(u) {
+    const failed = u.failed_logins + 1;
+    if (failed < MAX_FAILED) {
+      run('UPDATE users SET failed_logins = ? WHERE id = ?', failed, u.id);
+      return false;
+    }
+    const step = LOCK_STEPS_MS[Math.min(u.lock_count ?? 0, LOCK_STEPS_MS.length - 1)];
+    run('UPDATE users SET failed_logins = 0, locked_until = ?, lock_count = lock_count + 1 WHERE id = ?', now() + step, u.id);
+    return true;
+  }
+
   async function changePin(user, oldPin, newPin) {
     const u = getUser(user.id);
-    if (u.locked_until && u.locked_until > now()) throw new HttpError(429, 'Too many wrong PINs. Wait 15 minutes and sign in again.');
+    if (u.locked_until && u.locked_until > now()) throw new HttpError(429, 'Too many wrong PINs. Wait a while and sign in again.');
     if (!(await pinMatches(String(oldPin ?? ''), u.pin_hash))) {
       // Wrong current PINs count like wrong sign-ins, so a stolen session cannot be used to
       // guess the PIN. At the limit the account locks and every session ends, this one too.
-      const failed = u.failed_logins + 1;
-      if (failed >= MAX_FAILED) {
-        run('UPDATE users SET failed_logins = 0, locked_until = ? WHERE id = ?', now() + LOCK_MS, u.id);
+      if (wrongPin(u)) {
         endSessions(u.id);
-        throw new HttpError(429, 'Too many wrong PINs. You are signed out; wait 15 minutes and sign in again.');
+        throw new HttpError(429, 'Too many wrong PINs. You are signed out; wait at least 15 minutes and sign in again.');
       }
-      run('UPDATE users SET failed_logins = ? WHERE id = ?', failed, u.id);
       throw new HttpError(400, 'Your current PIN is wrong.');
     }
     const problem = pinProblem(newPin);
@@ -238,19 +250,15 @@ export function createAuth(db, opts = {}) {
       throw new HttpError(401, WRONG);
     }
     if (u.locked_until && u.locked_until > now()) {
-      await pinMatches(pin, await dummyHash);
-      const mins = Math.ceil((u.locked_until - now()) / 60_000);
-      throw new HttpError(429, `Too many wrong PINs. This account is locked for ${mins} more minute${mins === 1 ? '' : 's'}.`);
+      await pinMatches(pin, await dummyHash); // same time and same answer as any wrong PIN
+      throw new HttpError(401, WRONG);
     }
     const ok = await pinMatches(pin, u.pin_hash);
     if (!ok || !u.active) {
-      if (!ok) {
-        const failed = u.failed_logins + 1;
-        run('UPDATE users SET failed_logins = ?, locked_until = ? WHERE id = ?', failed >= MAX_FAILED ? 0 : failed, failed >= MAX_FAILED ? now() + LOCK_MS : null, u.id);
-      }
+      if (!ok) wrongPin(u);
       throw new HttpError(401, WRONG); // a deactivated account gets the same answer as a wrong PIN
     }
-    run('UPDATE users SET failed_logins = 0, locked_until = NULL, last_login_at = ? WHERE id = ?', now(), u.id);
+    run('UPDATE users SET failed_logins = 0, locked_until = NULL, lock_count = 0, last_login_at = ? WHERE id = ?', now(), u.id);
     run('DELETE FROM sessions WHERE expires_at <= ?', now());
     const token = crypto.randomBytes(32).toString('base64url');
     const expiresAt = now() + SESSION_MS;
