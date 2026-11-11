@@ -11,7 +11,11 @@ import crypto from 'node:crypto';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const WWW = path.join(ROOT, 'www');
-const API = 'https://bta-taxis.onrender.com'; // must match API_BASE in public/js/common.js
+// The app talks to the address in API_BASE (public/js/common.js), so that one line is the
+// only place to change when the server moves; the app's CSP is built from it here.
+const API = fs.readFileSync(path.join(ROOT, 'public/js/common.js'), 'utf8')
+  .match(/export const API_BASE = NATIVE \? '(https:\/\/[a-z0-9.-]+)' : '';/)?.[1];
+if (!API) throw new Error('build-app: could not read an https API_BASE from public/js/common.js');
 
 fs.rmSync(WWW, { recursive: true, force: true });
 fs.cpSync(path.join(ROOT, 'public'), WWW, { recursive: true });
